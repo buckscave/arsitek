@@ -15,7 +15,7 @@
 #ifndef NOTULEN_H
 #define NOTULEN_H
 
-#include "../dalang/dalang.h"
+#include "arsitek.h"
 
 /* === Penyimpanan === */
 

@@ -15,7 +15,7 @@
 #ifndef PENYEDIA_H
 #define PENYEDIA_H
 
-#include "../dalang/dalang.h"
+#include "arsitek.h"
 
 /* === Penyediaan Umum === */
 

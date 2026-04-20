@@ -1,9 +1,10 @@
 /*
- * bus.c
+ * jalur.c
  *
- * Penyediaan: bus
+ * Penyediaan jalur bus untuk perangkat.
+ * Mengelola konfigurasi bus PCI, USB, I2C, SPI
+ * dan menyediakan fungsi akses bus.
  */
 
-#include "penyedia.h"
-
-/* TODO: implementasi penyediaan bus */
+#include "../lampiran/arsitek.h"
+#include "../lampiran/mesin.h"

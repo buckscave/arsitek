@@ -1,9 +1,10 @@
 /*
  * alamat.c
  *
- * Penyediaan: alamat
+ * Penyediaan alamat memori fisik dan I/O.
+ * Mengelola peta alamat perangkat dan alokasi
+ * region memori untuk pengendali (driver).
  */
 
-#include "penyedia.h"
-
-/* TODO: implementasi penyediaan alamat */
+#include "../lampiran/arsitek.h"
+#include "../lampiran/mesin.h"

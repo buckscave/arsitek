@@ -16,7 +16,7 @@
 #ifndef PENINJAU_H
 #define PENINJAU_H
 
-#include "../dalang/dalang.h"
+#include "arsitek.h"
 
 /* === Pemeriksaan Umum === */
 
@@ -51,5 +51,36 @@ int  peninjau_cek_penyimpanan(DataPerangkat daftar[], int maks);
 
 /* Verifikasi apakah perangkat berfungsi dengan baik */
 KondisiPerangkat peninjau_verifikasi(DataPerangkat *perangkat);
+
+/* === Akses Langsung PCI (low-level) === */
+
+/* Baca register konfigurasi PCI 32-bit */
+uint32 peninjau_pci_baca(uint8 bus, uint8 perangkat, uint8 fungsi, uint8 offset);
+
+/* Tulis register konfigurasi PCI 32-bit */
+void   peninjau_pci_tulis(uint8 bus, uint8 perangkat, uint8 fungsi,
+                           uint8 offset, uint32 nilai);
+
+/* Baca vendor ID dari perangkat PCI */
+uint16 peninjau_pci_baca_vendor(uint8 bus, uint8 perangkat, uint8 fungsi);
+
+/* Baca perangkat ID dari perangkat PCI */
+uint16 peninjau_pci_baca_perangkat(uint8 bus, uint8 perangkat, uint8 fungsi);
+
+/* Baca kelas dan subkelas PCI (byte tinggi=kelas, byte rendah=subkelas) */
+uint16 peninjau_pci_baca_kelas(uint8 bus, uint8 perangkat, uint8 fungsi);
+
+/* Baca nomor IRQ dari perangkat PCI */
+uint8  peninjau_pci_baca_irq(uint8 bus, uint8 perangkat, uint8 fungsi);
+
+/* Baca BAR (Base Address Register) dari perangkat PCI; nomor_bar: 0-5 */
+uint32 peninjau_pci_baca_bar(uint8 bus, uint8 perangkat, uint8 fungsi,
+                              int nomor_bar);
+
+/* Baca tipe header dari perangkat PCI */
+uint8  peninjau_pci_baca_header_tipe(uint8 bus, uint8 perangkat, uint8 fungsi);
+
+/* Baca prog_if dari perangkat PCI */
+uint8  peninjau_pci_baca_prog_if(uint8 bus, uint8 perangkat, uint8 fungsi);
 
 #endif

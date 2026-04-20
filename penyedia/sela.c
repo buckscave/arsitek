@@ -1,9 +1,10 @@
 /*
- * interupsi.c
+ * sela.c
  *
- * Penyediaan: interupsi
+ * Penyediaan jalur interupsi (sela) untuk perangkat.
+ * Mengelola alokasi dan konfigurasi nomor IRQ
+ * untuk setiap perangkat yang membutuhkan.
  */
 
-#include "penyedia.h"
-
-/* TODO: implementasi penyediaan interupsi */
+#include "../lampiran/arsitek.h"
+#include "../lampiran/mesin.h"

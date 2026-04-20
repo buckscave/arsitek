@@ -1,9 +1,11 @@
 /*
  * koneksi.c
  *
- * Pembangunan: koneksi
+ * Pembangunan koneksi ke perangkat.
+ * Implementasi detail ada di pengembang.c — file ini
+ * menyediakan fungsi-fungsi tambahan untuk koneksi
+ * bus spesifik (PCI config, USB enumeration, dll).
  */
 
-#include "pengembang.h"
-
-/* TODO: implementasi pembangunan koneksi */
+#include "../lampiran/arsitek.h"
+#include "../lampiran/mesin.h"

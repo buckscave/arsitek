@@ -14,7 +14,7 @@
 #ifndef PENGEMBANG_H
 #define PENGEMBANG_H
 
-#include "../dalang/dalang.h"
+#include "arsitek.h"
 
 /* === Pembangunan Umum === */
 

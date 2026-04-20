@@ -1,9 +1,10 @@
 /*
  * kendali.c
  *
- * Pembangunan: kendali
+ * Pembangunan kendali (driver) perangkat.
+ * Implementasi detail ada di pengembang.c — file ini
+ * menyediakan fungsi-fungsi tambahan untuk driver spesifik.
  */
 
-#include "pengembang.h"
-
-/* TODO: implementasi pembangunan kendali */
+#include "../lampiran/arsitek.h"
+#include "../lampiran/mesin.h"
