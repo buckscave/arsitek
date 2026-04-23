@@ -49,25 +49,68 @@
 #define PCI_OFFSET_LATENCY      0x0D
 
 /* ================================================================
- * VENDOR ID YANG DIKENALI
+ * TABEL IC CHIP YANG DIKENALI
+ *
+ * Deteksi berbasis IC/chip, bukan berdasarkan vendor/brand.
  * ================================================================ */
 
-/* Tabel singkat vendor PCI yang umum */
+/*
+ * Tabel fabrikkan IC — mengidentifikasi IC chip berdasarkan
+ * kombinasi vendor_id dan perangkat_id PCI.
+ *
+ * Deteksi berbasis IC/chip, bukan berdasarkan vendor/brand.
+ * Banyak perangkat dari pabrikan berbeda menggunakan IC yang sama,
+ * sehingga identifikasi IC lebih akurat daripada nama vendor.
+ */
 static const struct {
-    uint16 id;
-    const char *nama;
-} tabel_vendor[] = {
-    { 0x8086, "Intel" },
-    { 0x1022, "AMD" },
-    { 0x10DE, "NVIDIA" },
-    { 0x1002, "AMD/ATI" },
-    { 0x10EC, "Realtek" },
-    { 0x8087, "Intel" },
-    { 0x1234, "Bochs/VirtualBox" },
-    { 0x1AF4, "Red Hat/Virtio" },
-    { 0x15AD, "VMware" },
-    { 0x1B36, "QEMU" },
-    { 0x0000, NULL }
+    uint16 vendor_id;
+    uint16 perangkat_id;
+    const char *nama_ic;        /* Nama IC (mis. "RTL8139C+") */
+    const char *fabrikkan;      /* Fabrikkan IC (mis. "Realtek") */
+} tabel_ic_pci[] = {
+    /* IC Jaringan */
+    { 0x10EC, 0x8139, "RTL8139C+",     "Realtek" },
+    { 0x10EC, 0x8169, "RTL8169SC",     "Realtek" },
+    { 0x10EC, 0x8125, "RTL8125B",      "Realtek" },
+    { 0x8086, 0x10D3, "I82574L",       "Intel" },
+    { 0x8086, 0x10EA, "I82577LM",      "Intel" },
+    { 0x8086, 0x1502, "I82579V",       "Intel" },
+    { 0x1969, 0x1073, "AR8151V2",      "Atheros" },
+    { 0x1969, 0x1091, "AR8161",        "Atheros" },
+    { 0x14E4, 0x165F, "BCM5720",       "Broadcom" },
+    { 0x14E4, 0x168E, "BCM57810",      "Broadcom" },
+    /* IC Storage */
+    { 0x8086, 0x2922, "ICH9 AHCI",     "Intel" },
+    { 0x8086, 0x3A22, "ICH10 AHCI",    "Intel" },
+    { 0x8086, 0x1C02, "PCH SATA",      "Intel" },
+    { 0x8086, 0x8C02, "Lynx Pt AHCI",  "Intel" },
+    { 0x8086, 0x7010, "PIIX3 IDE",     "Intel" },
+    { 0x8086, 0x2820, "ICH8 IDE",      "Intel" },
+    { 0x8086, 0xF1A5, "PCH NVMe",      "Intel" },
+    { 0x144D, 0xA808, "PM981 NVMe",    "Samsung" },
+    /* IC USB */
+    { 0x8086, 0x7020, "PIIX3 UHCI",    "Intel" },
+    { 0x8086, 0x24D2, "ICH5 UHCI",     "Intel" },
+    { 0x8086, 0x24DD, "ICH5 EHCI",     "Intel" },
+    { 0x8086, 0x293A, "ICH9 EHCI",     "Intel" },
+    { 0x8086, 0x1E31, "PP xHCI",       "Intel" },
+    { 0x8086, 0x9CB1, "WP xHCI",       "Intel" },
+    /* IC Tampilan */
+    { 0x1234, 0x1111, "Bochs VBE",     "Bochs" },
+    { 0x8086, 0x0046, "HD Graphics",   "Intel" },
+    { 0x10DE, 0x0FC6, "GK107 GPU",     "NVIDIA" },
+    { 0x1AF4, 0x1050, "VirtIO-GPU",    "Red Hat" },
+    /* IC Audio */
+    { 0x8086, 0x2415, "ICH2 AC97",     "Intel" },
+    { 0x8086, 0x293E, "ICH9 HDA",      "Intel" },
+    /* IC Virtual/Emulasi */
+    { 0x1AF4, 0x1000, "VirtIO-Net",    "Red Hat" },
+    { 0x1AF4, 0x1001, "VirtIO-Blk",    "Red Hat" },
+    { 0x1AF4, 0x1003, "VirtIO-Con",    "Red Hat" },
+    { 0x15AD, 0x0405, "VMware SVGA",   "VMware" },
+    { 0x1B36, 0x000D, "QXL GPU",       "QEMU" },
+    /* Penanda akhir */
+    { 0x0000, 0x0000, NULL,            NULL }
 };
 
 /* ================================================================
@@ -75,16 +118,29 @@ static const struct {
  * ================================================================ */
 
 /*
- * Cari nama vendor berdasarkan ID vendor.
- * Mengembalikan string statis atau "Tidak Dikenal" jika tidak ditemukan.
+ * Cari IC chip berdasarkan vendor ID dan perangkat ID.
+ * Mengembalikan nama IC dan fabrikkan, atau "Tidak Dikenal"
+ * jika IC tidak ditemukan dalam tabel.
+ *
+ * Deteksi berbasis IC/chip: dua perangkat dari vendor berbeda
+ * yang menggunakan IC chip yang sama akan terdeteksi sebagai
+ * IC yang sama, bukan sebagai perangkat yang berbeda.
  */
-static const char *cari_nama_vendor(uint16 vendor_id)
+static const char *cari_nama_ic(uint16 vendor_id, uint16 perangkat_id,
+                                 const char **fabrikkan_hasil)
 {
     int i;
-    for (i = 0; tabel_vendor[i].nama != NULL; i++) {
-        if (tabel_vendor[i].id == vendor_id) {
-            return tabel_vendor[i].nama;
+    for (i = 0; tabel_ic_pci[i].nama_ic != NULL; i++) {
+        if (tabel_ic_pci[i].vendor_id == vendor_id &&
+            tabel_ic_pci[i].perangkat_id == perangkat_id) {
+            if (fabrikkan_hasil != NULL) {
+                *fabrikkan_hasil = tabel_ic_pci[i].fabrikkan;
+            }
+            return tabel_ic_pci[i].nama_ic;
         }
+    }
+    if (fabrikkan_hasil != NULL) {
+        *fabrikkan_hasil = "Tidak Dikenal";
     }
     return "Tidak Dikenal";
 }
@@ -285,9 +341,6 @@ static void isi_data_pci(DataPerangkat *hasil, uint8 bus, uint8 perangkat,
     hasil->vendor_id    = vendor_id;
     hasil->perangkat_id = perangkat_id;
 
-    /* Nama pabrikan dari tabel vendor */
-    salin_string(hasil->pabrikan, cari_nama_vendor(vendor_id));
-
     /* Baca kelas dan subkelas */
     kelas_subkelas = peninjau_pci_baca_kelas(bus, perangkat, fungsi);
     kelas    = (uint8)((kelas_subkelas >> 8) & 0xFF);
@@ -297,7 +350,7 @@ static void isi_data_pci(DataPerangkat *hasil, uint8 bus, uint8 perangkat,
 
     /* Baca prog_if — simpan ke data_khusus */
     prog_if = peninjau_pci_baca_prog_if(bus, perangkat, fungsi);
-    hasil->data_khusus[24] = prog_if;   /* Simpan prog_if di data_khusus */
+    hasil->data_khusus[24] = prog_if;
 
     /* Baca IRQ */
     irq = peninjau_pci_baca_irq(bus, perangkat, fungsi);
@@ -310,39 +363,54 @@ static void isi_data_pci(DataPerangkat *hasil, uint8 bus, uint8 perangkat,
     for (i = 0; i < 6; i++) {
         uint32 bar;
         bar = peninjau_pci_baca_bar(bus, perangkat, fungsi, i);
-        /* Simpan sebagai array uint32 dalam data_khusus */
         salin_memori(hasil->data_khusus + (i * 4), &bar, 4);
     }
 
     /* Baca header tipe — simpan ke data_khusus */
     header_tipe = peninjau_pci_baca_header_tipe(bus, perangkat, fungsi);
-    hasil->data_khusus[25] = header_tipe;  /* Simpan header tipe di data_khusus */
+    hasil->data_khusus[25] = header_tipe;
 
-    /* Buat nama deskriptif berdasarkan kelas */
+    /* Nama IC chip dari tabel IC (bukan nama vendor) */
     {
-        const char *nama_kelas = "Perangkat PCI";
-        switch (kelas) {
-        case 0x00: nama_kelas = "Perangkat Lama"; break;
-        case 0x01: nama_kelas = "Pengendali Penyimpanan"; break;
-        case 0x02: nama_kelas = "Pengendali Jaringan"; break;
-        case 0x03: nama_kelas = "Pengendali Tampilan"; break;
-        case 0x04: nama_kelas = "Pengendali Multimedia"; break;
-        case 0x05: nama_kelas = "Pengendali Memori"; break;
-        case 0x06: nama_kelas = "Jembatan Bus"; break;
-        case 0x07: nama_kelas = "Pengendali Komunikasi"; break;
-        case 0x08: nama_kelas = "Periferal Sistem"; break;
-        case 0x09: nama_kelas = "Pengendali Input"; break;
-        case 0x0A: nama_kelas = "Stasiun Dock"; break;
-        case 0x0B: nama_kelas = "Prosesor"; break;
-        case 0x0C: nama_kelas = "Pengendali Serial"; break;
-        case 0x0D: nama_kelas = "Pengendali Nirkabel"; break;
-        case 0x0E: nama_kelas = "Pengendali Intelijen"; break;
-        case 0x0F: nama_kelas = "Pengendali Satelit"; break;
-        case 0x10: nama_kelas = "Pengendali Enkripsi"; break;
-        case 0x11: nama_kelas = "Pengendali Pengambilan Data"; break;
-        default:   nama_kelas = "Perangkat PCI Tidak Dikenal"; break;
+        const char *fabrikkan_ic = "Tidak Dikenal";
+        const char *nama_ic;
+        nama_ic = cari_nama_ic(vendor_id, perangkat_id, &fabrikkan_ic);
+
+        /* Isi nama perangkat dengan nama IC chip */
+        salin_string(hasil->pabrikan, fabrikkan_ic);
+
+        /* Buat nama deskriptif berdasarkan kelas + nama IC */
+        {
+            const char *nama_kelas = "Perangkat PCI";
+            switch (kelas) {
+            case 0x00: nama_kelas = "Perangkat Lama"; break;
+            case 0x01: nama_kelas = "Pengendali Penyimpanan"; break;
+            case 0x02: nama_kelas = "Pengendali Jaringan"; break;
+            case 0x03: nama_kelas = "Pengendali Tampilan"; break;
+            case 0x04: nama_kelas = "Pengendali Multimedia"; break;
+            case 0x05: nama_kelas = "Pengendali Memori"; break;
+            case 0x06: nama_kelas = "Jembatan Bus"; break;
+            case 0x07: nama_kelas = "Pengendali Komunikasi"; break;
+            case 0x08: nama_kelas = "Periferal Sistem"; break;
+            case 0x09: nama_kelas = "Pengendali Input"; break;
+            case 0x0A: nama_kelas = "Stasiun Dock"; break;
+            case 0x0B: nama_kelas = "Prosesor"; break;
+            case 0x0C: nama_kelas = "Pengendali Serial"; break;
+            case 0x0D: nama_kelas = "Pengendali Nirkabel"; break;
+            case 0x0E: nama_kelas = "Pengendali Intelijen"; break;
+            case 0x0F: nama_kelas = "Pengendali Satelit"; break;
+            case 0x10: nama_kelas = "Pengendali Enkripsi"; break;
+            case 0x11: nama_kelas = "Pengendali Pengambilan Data"; break;
+            default:   nama_kelas = "Perangkat PCI Tidak Dikenal"; break;
+            }
+
+            /* Jika IC dikenali, gunakan nama IC; jika tidak, nama kelas */
+            if (bandingkan_string(nama_ic, "Tidak Dikenal") != 0) {
+                salin_string(hasil->nama, nama_ic);
+            } else {
+                salin_string(hasil->nama, nama_kelas);
+            }
         }
-        salin_string(hasil->nama, nama_kelas);
     }
 
     /* Tentukan kondisi perangkat */

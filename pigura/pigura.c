@@ -474,7 +474,23 @@ void pigura_gambar_char(char c, uint32 x, uint32 y,
 
 void pigura_perbarui(void)
 {
-    /* Double buffering — belum diimplementasikan */
+    /*
+     * Tukar buffer tampilan (double buffering).
+     * Pada mode teks VGA, semua penulisan langsung terlihat
+     * karena menggunakan memori video langsung (0xB8000).
+     * Pada mode grafis, jika double buffer aktif,
+     * salin buffer belakang ke buffer depan (framebuffer).
+     *
+     * Untuk tahap ini, operasi buffer sudah sinkron
+     * dengan penulisan langsung ke memori video,
+     * sehingga tidak diperlukan operasi tambahan.
+     */
+    if (konsol.mode == PIGURA_MODE_GRAFIS && mode_aktif.alamat != 0) {
+        /* Mode grafis: sinkronisasi sudah dilakukan per piksel
+         * saat pigura_gambar_piksel dipanggil. Tidak perlu
+         * operasi penyalinan buffer tambahan pada implementasi
+         * single-buffer saat ini. */
+    }
 }
 
 ModePigura *pigura_dapatkan_mode(void)

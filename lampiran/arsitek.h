@@ -157,6 +157,48 @@ typedef int logika;
 #define PENYIMPANAN_MAKSIMUM    16
 
 /* ================================================================
+ * KONSTANTA IC (INTEGRATED CIRCUIT) / CHIP
+ *
+ * Deteksi perangkat keras berdasarkan IC/chip, bukan
+ * berdasarkan vendor/merk. Banyak perangkat dari pabrikan
+ * berbeda menggunakan IC chip yang sama, sehingga
+ * pendeteksian berbasis IC lebih akurat dan memungkinkan
+ * pembuatan driver generik per IC.
+ * ================================================================ */
+
+/* Panjang nama IC */
+#define IC_NAMA_PANJANG         32
+#define IC_FABRIKAN_PANJANG     32
+#define IC_FUNGSI_PANJANG      64
+
+/* Jumlah maksimum IC yang dikenali */
+#define IC_MAKSIMUM            128
+
+/* Tipe fungsi IC */
+typedef enum {
+    IC_FUNGSI_ETERNET         = 0,   /* IC pengendali Eternet */
+    IC_FUNGSI_WIFI            = 1,   /* IC pengendali WiFi */
+    IC_FUNGSI_STORAGE_IDE     = 2,   /* IC pengendali IDE/PATA */
+    IC_FUNGSI_STORAGE_AHCI    = 3,   /* IC pengendali SATA AHCI */
+    IC_FUNGSI_STORAGE_NVME    = 4,   /* IC pengendali NVMe */
+    IC_FUNGSI_USB_UHCI        = 5,   /* IC pengendali USB UHCI */
+    IC_FUNGSI_USB_OHCI        = 6,   /* IC pengendali USB OHCI */
+    IC_FUNGSI_USB_EHCI        = 7,   /* IC pengendali USB EHCI */
+    IC_FUNGSI_USB_XHCI        = 8,   /* IC pengendali USB xHCI */
+    IC_FUNGSI_TAMPILAN_VGA    = 9,   /* IC pengendali tampilan VGA */
+    IC_FUNGSI_TAMPILAN_GPU    = 10,  /* IC pengendali GPU */
+    IC_FUNGSI_AUDIO           = 11,  /* IC pengendali audio */
+    IC_FUNGSI_UART            = 12,  /* IC UART/serial */
+    IC_FUNGSI_DMA             = 13,  /* IC DMA controller */
+    IC_FUNGSI_PIC             = 14,  /* IC interrupt controller */
+    IC_FUNGSI_PIT             = 15,  /* IC timer */
+    IC_FUNGSI_RTC             = 16,  /* IC real-time clock */
+    IC_FUNGSI_BRIDGE          = 17,  /* IC bus bridge */
+    IC_FUNGSI_BLUETOOTH       = 18,  /* IC Bluetooth */
+    IC_FUNGSI_LAIN            = 99   /* IC fungsi lainnya */
+} TipeFungsiIC;
+
+/* ================================================================
  * MAKRO UTILITAS
  * ================================================================ */
 
@@ -356,6 +398,27 @@ typedef struct {
     TipeBus  bus;               /* Jenis bus koneksi */
 } DataJaringan;
 
+/* Data IC (Integrated Circuit) — identifikasi chip perangkat */
+typedef struct {
+    uint16        vendor_id;           /* Vendor ID PCI/USB */
+    uint16        perangkat_id;        /* Device ID PCI/USB */
+    uint8         kelas;               /* Kelas PCI */
+    uint8         subkelas;           /* Sub-kelas PCI */
+    char          nama_ic[IC_NAMA_PANJANG];       /* Nama IC (mis. "RTL8139") */
+    char          fabrikkan[IC_FABRIKAN_PANJANG];  /* Fabrikan IC (mis. "Realtek") */
+    char          fungsi[IC_FUNGSI_PANJANG];      /* Deskripsi fungsi IC */
+    TipeFungsiIC  tipe_fungsi;        /* Tipe fungsi IC */
+    TipePerangkat tipe_perangkat;     /* Tipe perangkat yang menggunakan IC */
+    TipeBus       tipe_bus;           /* Jenis bus koneksi IC */
+    uint32        clock_mhz;          /* Kecepatan clock IC (MHz) */
+    uint32        alamat_basis;        /* Alamat basis register IC */
+    uint32        ukuran_register;     /* Ukuran ruang register IC */
+    uint32        interupsi_default;   /* Nomor interupsi default IC */
+    uint32        parameter_maks[8];   /* Parameter nilai maksimum untuk uji */
+    uint32        parameter_optimal[8]; /* Parameter nilai optimal (stabil) */
+    uint8         jumlah_parameter;    /* Jumlah parameter yang digunakan */
+} DataIC;
+
 /* ================================================================
  * STRUKTUR ARSITEKTUR x86/x64
  * ================================================================ */
@@ -541,6 +604,12 @@ int       bandingkan_string(const char *a, const char *b);
 /* --- Utilitas konversi --- */
 char *konversi_uint_ke_string(uint32 nilai, char *buffer, int basis);
 char *konversi_int_ke_string(int32 nilai, char *buffer, int basis);
+
+/* --- IC/Chip (deteksi dan identifikasi) --- */
+DataIC       *ic_identifikasi(uint16 vendor_id, uint16 perangkat_id, uint8 kelas, uint8 subkelas);
+const char   *ic_nama_fungsi(TipeFungsiIC tipe);
+int           ic_cocok_perangkat(DataIC *ic, DataPerangkat *perangkat);
+void          ic_isi_parameter_optimal(DataIC *ic, DataPerangkat *perangkat);
 
 /* ================================================================
  * INLINE I/O PORT (x86/x64)
