@@ -4,6 +4,12 @@
  * Pemeriksaan perangkat jaringan — deteksi pengendali
  * Eternet dan WiFi melalui bus PCI.
  * Memindai kelas PCI 0x02 (Network Controller).
+ *
+ * CATATAN: Fungsi ini TIDAK lagi memanggil notulen_tambah()
+ * karena semua perangkat PCI (termasuk jaringan) sudah
+ * dicatat saat enumerasi PCI umum di pci.c. Pemanggilan
+ * notulen_tambah() sebelumnya menyebabkan entri ganda
+ * (double-entry) di notulen.
  */
 
 #include "../lampiran/arsitek.h"
@@ -70,7 +76,10 @@ int peninjau_cek_jaringan(DataPerangkat daftar[], int maks)
                                      MIN(sizeof(DataJaringan), DATA_KHUSUS_PANJANG));
                     }
 
-                    notulen_tambah(&daftar[jumlah]);
+                    /* TIDAK memanggil notulen_tambah() di sini.
+                     * Perangkat jaringan PCI sudah dicatat
+                     * saat enumerasi PCI umum (pci.c). Menambahkan
+                     * lagi akan menyebabkan entri ganda di notulen. */
                     jumlah++;
                 }
             }

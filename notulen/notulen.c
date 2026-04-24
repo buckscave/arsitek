@@ -20,6 +20,7 @@
 
 #include "../lampiran/arsitek.h"
 #include "../lampiran/mesin.h"
+#include "../lampiran/notulen.h"
 
 /* ================================================================
  * DATA INTERNAL

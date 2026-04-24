@@ -24,32 +24,13 @@
 #include "../../lampiran/mesin.h"
 
 /* ================================================================
- * FALLBACK DEFINISI ARM32
- *
- * Jika kompilasi dilakukan tanpa flag -DARSITEK_ARM32=1,
- * definisi dari mesin.h tidak akan tersedia.
- * Berikan fallback agar kode tetap dapat dikompilasi.
- * ================================================================ */
-#ifndef VBAR_ALAMAT
-#define VBAR_ALAMAT 0x0000             /* Vector Base Address */
-#endif
-
-#ifndef GIC_DISTRIBUTOR_BASE
-#define GIC_DISTRIBUTOR_BASE   0x2C001000
-#define GIC_CPU_INTERFACE_BASE 0x2C002000
-#define GICD_CTRL              0x0000
-#define GICD_TYPER             0x0004
-#define GICD_ICENABLE          0x0180
-#define GICD_ICPEND            0x0280
-#define GICD_IPRIORITY         0x0400
-#define GICD_ITARGETS          0x0800
-#define GICD_ICFG              0x0C00
-#define GICC_CTRL              0x0000
-#define GICC_PMR               0x0004
-#endif
-
-/* ================================================================
  * KONSTANTA GIC (VersatilePB)
+ *
+ * Konstanta VBAR_ALAMAT, GIC_DISTRIBUTOR_BASE, GICD_CTRL,
+ * GICD_TYPER, GICD_ICENABLE, GICD_ICPEND, GICD_IPRIORITY,
+ * GICD_ITARGETS, GICD_ICFG, GICC_CTRL, dan GICC_PMR
+ * sudah didefinisikan di mesin.h yang di-include di atas.
+ * Tidak perlu fallback #ifndef lagi.
  * ================================================================ */
 
 /* GIC Distributor */

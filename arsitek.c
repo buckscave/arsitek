@@ -234,14 +234,14 @@ void arsitek_mulai(void)
  * penugasan struktur. Karena kita menggunakan -nostdlib,
  * kita harus menyediakan implementasi sendiri.
  * ================================================================ */
-#ifdef __arm__
+#if defined(__arm__) || defined(ARSITEK_ARM32)
 void *memcpy(void *tujuan, const void *sumber, unsigned long ukuran)
 {
     return salin_memori(tujuan, sumber, (ukuran_t)ukuran);
 }
 #endif
 
-#ifdef __aarch64__
+#if defined(__aarch64__) || defined(ARSITEK_ARM64)
 void *memcpy(void *tujuan, const void *sumber, unsigned long ukuran)
 {
     return salin_memori(tujuan, sumber, (ukuran_t)ukuran);

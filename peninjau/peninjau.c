@@ -17,6 +17,15 @@
  *   9. Periksa USB (via PCI class 0x0C03)
  *  10. Periksa DMA (8237 controller)
  *
+ * CATATAN PENTING tentang duplikasi notulen:
+ *   Perangkat penyimpanan dan jaringan adalah perangkat PCI
+ *   yang sudah ditemukan saat enumerasi PCI umum (langkah 3).
+ *   Fungsi peninjau_cek_penyimpanan() dan peninjau_cek_jaringan()
+ *   TIDAK memanggil notulen_tambah() karena perangkat PCI
+ *   sudah dicatat saat enumerasi PCI. Pemanggilan notulen_tambah()
+ *   di penyimpanan.c dan jaringan.c telah dihapus untuk
+ *   menghindari entri ganda (double-entry) di notulen.
+ *
  * Setelah selesai, Peninjau memberikan laporan lengkap
  * kepada Arsitek, yang disampaikan melalui Notulen.
  */
@@ -40,11 +49,17 @@ static int jumlah_perangkat = 0;
  * peninjau_periksa_semua — Periksa seluruh perangkat keras.
  * Dipanggil oleh arsitek_mulai() setelah konstruksi selesai.
  * Menjalankan semua sub-inspeksi secara berurutan.
+ *
+ * Perangkat penyimpanan dan jaringan TIDAK ditambahkan ke
+ * notulen secara terpisah karena sudah tercakup dalam
+ * enumerasi PCI umum. Pemanggilan notulen_tambah() hanya
+ * dilakukan di sini untuk perangkat non-PCI.
  */
 void peninjau_periksa_semua(void)
 {
     DataPerangkat hasil;
     int jumlah_pci;
+    int i;
 
     notulen_catat(NOTULEN_INFO, "Peninjau: Memulai pemeriksaan perangkat keras...");
     jumlah_perangkat = 0;
@@ -63,12 +78,18 @@ void peninjau_periksa_semua(void)
         daftar_perangkat[jumlah_perangkat++] = hasil;
     }
 
-    /* 3. Enumerasi PCI — ini inti dari deteksi perangkat */
+    /* 3. Enumerasi PCI — ini inti dari deteksi perangkat.
+     * Semua perangkat PCI (termasuk penyimpanan dan jaringan)
+     * sudah ditambahkan ke notulen oleh fungsi isi_data_pci()
+     * di pci.c. Pemanggilan notulen_tambah() di penyimpanan.c
+     * dan jaringan.c telah dihapus untuk mencegah duplikasi. */
     {
         DataPerangkat daftar_pci[PCI_MAKSIMUM];
-        int i;
         jumlah_pci = peninjau_cek_pci(daftar_pci, PCI_MAKSIMUM);
         for (i = 0; i < jumlah_pci && jumlah_perangkat < PERANGKAT_MAKSIMUM; i++) {
+            /* Perangkat PCI sudah ditambahkan ke notulen oleh
+             * isi_data_pci() di pci.c, jadi tidak perlu
+             * memanggil notulen_tambah() lagi di sini. */
             daftar_perangkat[jumlah_perangkat++] = daftar_pci[i];
         }
     }
@@ -94,20 +115,27 @@ void peninjau_periksa_semua(void)
         daftar_perangkat[jumlah_perangkat++] = hasil;
     }
 
-    /* 7. Periksa penyimpanan */
+    /* 7. Periksa penyimpanan.
+     * Perangkat penyimpanan adalah perangkat PCI yang sudah
+     * dicatat oleh enumerasi PCI di langkah 3. Fungsi
+     * peninjau_cek_penyimpanan() TIDAK lagi memanggil
+     * notulen_tambah() untuk menghindari duplikasi. */
     {
         DataPerangkat daftar_penyimpanan[PENYIMPANAN_MAKSIMUM];
-        int i;
-        int jumlah = peninjau_cek_penyimpanan(daftar_penyimpanan, PENYIMPANAN_MAKSIMUM);
+        int jumlah = peninjau_cek_penyimpanan(daftar_penyimpanan,
+                                               PENYIMPANAN_MAKSIMUM);
         for (i = 0; i < jumlah && jumlah_perangkat < PERANGKAT_MAKSIMUM; i++) {
             daftar_perangkat[jumlah_perangkat++] = daftar_penyimpanan[i];
         }
     }
 
-    /* 8. Periksa jaringan */
+    /* 8. Periksa jaringan.
+     * Perangkat jaringan adalah perangkat PCI yang sudah
+     * dicatat oleh enumerasi PCI di langkah 3. Fungsi
+     * peninjau_cek_jaringan() TIDAK lagi memanggil
+     * notulen_tambah() untuk menghindari duplikasi. */
     {
         DataPerangkat daftar_jaringan[8];
-        int i;
         int jumlah = peninjau_cek_jaringan(daftar_jaringan, 8);
         for (i = 0; i < jumlah && jumlah_perangkat < PERANGKAT_MAKSIMUM; i++) {
             daftar_perangkat[jumlah_perangkat++] = daftar_jaringan[i];

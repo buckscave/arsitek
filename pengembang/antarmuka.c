@@ -7,6 +7,7 @@
  *
  * Setiap antarmuka dikaitkan dengan satu IC chip dan
  * menyediakan operasi baca/tulis/ioctl/status yang generik.
+ * Struktur AntarmukaPerangkat didefinisikan dalam pengembang.h.
  */
 
 #include "../lampiran/arsitek.h"
@@ -18,14 +19,9 @@
  * KONSTANTA ANTARMUKA
  * ================================================================ */
 
-/* Jumlah maksimum antarmuka yang dapat dibuat */
-#define ANTARMUKA_MAKSIMUM    64
-
-/* Status antarmuka */
-#define ANTARMUKA_STATUS_TUTUP    0
-#define ANTARMUKA_STATUS_BUKA     1
-#define ANTARMUKA_STATUS_SIBUK    2
-#define ANTARMUKA_STATUS_KESALAHAN 3
+/* Status kunci antarmuka */
+#define ANTARMUKA_BEBAS         0   /* Antarmuka tidak terkunci */
+#define ANTARMUKA_TERKUNCI     1   /* Antarmuka sedang digunakan */
 
 /* Kode ioctl umum */
 #define IOCTL_RESET              0x0001
@@ -36,76 +32,61 @@
 #define IOCTL_GET_IDENTITAS      0x0006
 
 /* ================================================================
- * STRUKTUR ANTARMUKA
- * ================================================================ */
-
-/*
- * Struktur AntarmukaPerangkat — merepresentasikan satu
- * antarmuka perangkat yang dapat diakses oleh lapisan atas.
- */
-typedef struct {
-    uint32           nomor;           /* Nomor urut antarmuka */
-    DataPerangkat   *perangkat;       /* Pointer ke data perangkat */
-    DataIC          *ic;              /* Pointer ke data IC */
-    uint8            status;          /* Status antarmuka */
-    uint8            tipe_fungsi;     /* Tipe fungsi IC (dari DataIC) */
-    uint16           jumlah_buka;     /* Berapa kali antarmuka dibuka */
-    ukuran_ptr       alamat_register; /* Alamat basis register IC */
-    uint32           interupsi;       /* Nomor interupsi */
-    uint32           parameter_aktif[8]; /* Parameter yang sedang aktif */
-} AntarmukaPerangkat;
-
-/* ================================================================
  * DATA INTERNAL
+ *
+ * Tabel statis untuk melacak semua antarmuka yang telah dibuat.
+ * Maksimum ANTARMUKA_MAKSIMUM (32) antarmuka per sistem.
  * ================================================================ */
 
-/* Tabel antarmuka yang sudah dibuat */
 static AntarmukaPerangkat tabel_antarmuka[ANTARMUKA_MAKSIMUM];
 static int jumlah_antarmuka = 0;
 
 /* ================================================================
- * FUNGSI PEMBUATAN ANTARMUKA
- * ================================================================ */
-
-/*
- * pengembang_antarmuka_buat — Buat antarmuka untuk perangkat.
+ * pengembang_antarmuka_buat — Buat antarmuka untuk perangkat
+ *
  * Menghubungkan perangkat dengan IC yang sudah diidentifikasi
- * dan menyiapkan struktur antarmuka untuk akses lapisan atas.
+ * dan menyiapkan struktur AntarmukaPerangkat untuk akses
+ * oleh lapisan atas. Mengisi semua field antarmuka dari
+ * data IC dan perangkat.
  *
  * Parameter:
- *   perangkat — pointer ke struktur DataPerangkat
- *   ic        — pointer ke struktur DataIC yang sudah diidentifikasi
- * Mengembalikan nomor antarmuka (>= 0) jika berhasil, STATUS_GAGAL jika gagal.
- */
-int pengembang_antarmuka_buat(DataPerangkat *perangkat, DataIC *ic)
+ *   perangkat  — pointer ke DataPerangkat
+ *   ic         — pointer ke DataIC yang sudah diidentifikasi
+ *   antarmuka  — pointer ke AntarmukaPerangkat yang akan diisi
+ *
+ * Mengembalikan:
+ *   STATUS_OK jika berhasil,
+ *   STATUS_PARAMETAR_SALAH jika parameter NULL,
+ *   STATUS_GAGAL jika tabel penuh
+ * ================================================================ */
+int pengembang_antarmuka_buat(DataPerangkat *perangkat, DataIC *ic,
+                               AntarmukaPerangkat *antarmuka)
 {
-    AntarmukaPerangkat *ant;
-    int i;
-
-    if (perangkat == NULL || ic == NULL) return STATUS_PARAMETAR_SALAH;
-    if (jumlah_antarmuka >= ANTARMUKA_MAKSIMUM) return STATUS_GAGAL;
-
-    ant = &tabel_antarmuka[jumlah_antarmuka];
-
-    /* Isi struktur antarmuka */
-    isi_memori(ant, 0, sizeof(AntarmukaPerangkat));
-    ant->nomor = (uint32)jumlah_antarmuka;
-    ant->perangkat = perangkat;
-    ant->ic = ic;
-    ant->status = ANTARMUKA_STATUS_TUTUP;
-    ant->tipe_fungsi = (uint8)ic->tipe_fungsi;
-    ant->jumlah_buka = 0;
-    ant->alamat_register = perangkat->alamat;
-    ant->interupsi = perangkat->interupsi;
-
-    /* Salin parameter optimal dari IC ke parameter aktif */
-    for (i = 0; i < ic->jumlah_parameter && i < 8; i++) {
-        ant->parameter_aktif[i] = ic->parameter_optimal[i];
+    if (perangkat == NULL || ic == NULL || antarmuka == NULL) {
+        return STATUS_PARAMETAR_SALAH;
     }
 
+    if (jumlah_antarmuka >= ANTARMUKA_MAKSIMUM) {
+        notulen_catat(NOTULEN_KESALAHAN,
+            "Antarmuka: Tabel antarmuka penuh");
+        return STATUS_GAGAL;
+    }
+
+    /* Isi struktur antarmuka */
+    isi_memori(antarmuka, 0, sizeof(AntarmukaPerangkat));
+    antarmuka->perangkat   = perangkat;
+    antarmuka->ic          = ic;
+    antarmuka->terkunci    = ANTARMUKA_BEBAS;
+    antarmuka->jumlah_buka = 0;
+    antarmuka->kondisi     = KONDISI_BAIK;
+    antarmuka->alamat_basis = ic->alamat_basis;
+    antarmuka->tipe_bus    = ic->tipe_bus;
+
+    /* Simpan juga ke tabel internal */
+    tabel_antarmuka[jumlah_antarmuka] = *antarmuka;
     jumlah_antarmuka++;
 
-    /* Catat pembuatan antarmuka */
+    /* Catat pembuatan antarmuka ke notulen */
     {
         char pesan[128];
         salin_string(pesan, "Antarmuka: Dibuat untuk IC ");
@@ -113,348 +94,411 @@ int pengembang_antarmuka_buat(DataPerangkat *perangkat, DataIC *ic)
         notulen_catat(NOTULEN_INFO, pesan);
     }
 
-    return (int)ant->nomor;
+    return STATUS_OK;
 }
 
 /* ================================================================
- * FUNGSI BACA/TULIS ANTARMUKA
- * ================================================================ */
-
-/*
- * pengembang_antarmuka_baca — Baca data dari perangkat.
- * Melakukan operasi baca melalui register IC.
+ * pengembang_antarmuka_baca — Baca data dari perangkat
+ *
+ * Melakukan operasi baca melalui register IC. Mendukung
+ * baca 1 byte, 2 byte, 4 byte, dan multi-register.
  *
  * Parameter:
- *   nomor      — nomor antarmuka
- *   offset     — offset register atau alamat baca
- *   buffer     — buffer penampung data
- *   ukuran     — jumlah byte yang dibaca
- * Mengembalikan jumlah byte yang berhasil dibaca, atau STATUS_GAGAL.
- */
-int pengembang_antarmuka_baca(unsigned int nomor, uint32 offset,
-                               void *buffer, ukuran_t ukuran)
+ *   antarmuka — pointer ke AntarmukaPerangkat
+ *   offset    — offset register atau alamat baca
+ *   buffer    — buffer penampung data (uint8*)
+ *   panjang   — jumlah byte yang akan dibaca
+ *
+ * Mengembalikan:
+ *   Jumlah byte yang berhasil dibaca (positif),
+ *   STATUS_GAGAL jika antarmuka tidak aktif,
+ *   STATUS_PARAMETAR_SALAH jika parameter NULL
+ * ================================================================ */
+int pengembang_antarmuka_baca(AntarmukaPerangkat *antarmuka,
+                               uint32 offset,
+                               uint8 *buffer,
+                               ukuran_t panjang)
 {
-    AntarmukaPerangkat *ant;
+    if (antarmuka == NULL || buffer == NULL) {
+        return STATUS_PARAMETAR_SALAH;
+    }
 
-    if (nomor >= (unsigned int)jumlah_antarmuka) return STATUS_TIDAK_ADA;
-    if (buffer == NULL) return STATUS_PARAMETAR_SALAH;
+    /* Pastikan antarmuka pernah dibuka */
+    if (antarmuka->jumlah_buka == 0) {
+        notulen_catat(NOTULEN_KESALAHAN,
+            "Antarmuka: Baca gagal — antarmuka belum dibuka");
+        return STATUS_GAGAL;
+    }
 
-    ant = &tabel_antarmuka[nomor];
+    /* Pastikan perangkat tersedia */
+    if (antarmuka->perangkat == NULL) {
+        return STATUS_GAGAL;
+    }
 
-    if (ant->status == ANTARMUKA_STATUS_TUTUP) return STATUS_GAGAL;
-
-    /* Baca dari register IC */
-    if (ukuran == 4) {
+    /* Baca berdasarkan ukuran data */
+    if (panjang == 4) {
         uint32 nilai;
-        nilai = pengembang_kendali_baca_register(ant->perangkat, offset);
+        nilai = pengembang_kendali_baca_register(
+                    antarmuka->perangkat, offset);
         salin_memori(buffer, &nilai, 4);
-    } else if (ukuran == 2) {
+    } else if (panjang == 2) {
         uint32 nilai;
-        nilai = pengembang_kendali_baca_register(ant->perangkat, offset & 0xFC);
+        nilai = pengembang_kendali_baca_register(
+                    antarmuka->perangkat, offset & 0xFC);
         nilai = (nilai >> ((offset & 0x03) * 8)) & 0xFFFF;
         salin_memori(buffer, &nilai, 2);
-    } else if (ukuran == 1) {
+    } else if (panjang == 1) {
         uint32 nilai;
-        nilai = pengembang_kendali_baca_register(ant->perangkat, offset & 0xFC);
+        nilai = pengembang_kendali_baca_register(
+                    antarmuka->perangkat, offset & 0xFC);
         nilai = (nilai >> ((offset & 0x03) * 8)) & 0xFF;
         salin_memori(buffer, &nilai, 1);
     } else {
         /* Baca multi-register */
         ukuran_t i;
-        for (i = 0; i < ukuran; i += 4) {
+        for (i = 0; i < panjang; i += 4) {
             uint32 nilai;
-            nilai = pengembang_kendali_baca_register(ant->perangkat, offset + i);
-            salin_memori((uint8 *)buffer + i, &nilai,
-                         MIN(4, (ukuran_t)(ukuran - i)));
+            ukuran_t sisa;
+            ukuran_t salin;
+
+            nilai = pengembang_kendali_baca_register(
+                        antarmuka->perangkat, offset + (uint32)i);
+            sisa = panjang - i;
+            salin = (sisa < 4) ? sisa : 4;
+            salin_memori(buffer + i, &nilai, salin);
         }
     }
 
-    return (int)ukuran;
-}
-
-/*
- * pengembang_antarmuka_tulis — Tulis data ke perangkat.
- * Melakukan operasi tulis melalui register IC.
- *
- * Parameter:
- *   nomor      — nomor antarmuka
- *   offset     — offset register atau alamat tulis
- *   buffer     — buffer data yang akan ditulis
- *   ukuran     — jumlah byte yang ditulis
- * Mengembalikan jumlah byte yang berhasil ditulis, atau STATUS_GAGAL.
- */
-int pengembang_antarmuka_tulis(unsigned int nomor, uint32 offset,
-                                const void *buffer, ukuran_t ukuran)
-{
-    AntarmukaPerangkat *ant;
-
-    if (nomor >= (unsigned int)jumlah_antarmuka) return STATUS_TIDAK_ADA;
-    if (buffer == NULL) return STATUS_PARAMETAR_SALAH;
-
-    ant = &tabel_antarmuka[nomor];
-
-    if (ant->status == ANTARMUKA_STATUS_TUTUP) return STATUS_GAGAL;
-
-    /* Tulis ke register IC */
-    if (ukuran == 4) {
-        uint32 nilai;
-        salin_memori(&nilai, buffer, 4);
-        pengembang_kendali_tulis_register(ant->perangkat, offset, nilai);
-    } else if (ukuran == 2) {
-        uint32 nilai;
-        uint16 data;
-        salin_memori(&data, buffer, 2);
-        nilai = pengembang_kendali_baca_register(ant->perangkat, offset & 0xFC);
-        nilai &= ~(0xFFFF << ((offset & 0x03) * 8));
-        nilai |= ((uint32)data << ((offset & 0x03) * 8));
-        pengembang_kendali_tulis_register(ant->perangkat, offset & 0xFC, nilai);
-    } else if (ukuran == 1) {
-        uint32 nilai;
-        uint8 data;
-        salin_memori(&data, buffer, 1);
-        nilai = pengembang_kendali_baca_register(ant->perangkat, offset & 0xFC);
-        nilai &= ~(0xFF << ((offset & 0x03) * 8));
-        nilai |= ((uint32)data << ((offset & 0x03) * 8));
-        pengembang_kendali_tulis_register(ant->perangkat, offset & 0xFC, nilai);
-    } else {
-        /* Tulis multi-register */
-        ukuran_t i;
-        for (i = 0; i < ukuran; i += 4) {
-            uint32 nilai = 0;
-            salin_memori(&nilai, (const uint8 *)buffer + i,
-                         MIN(4, (ukuran_t)(ukuran - i)));
-            pengembang_kendali_tulis_register(ant->perangkat, offset + i, nilai);
-        }
-    }
-
-    return (int)ukuran;
+    return (int)panjang;
 }
 
 /* ================================================================
- * FUNGSI IOCTL
- * ================================================================ */
-
-/*
- * pengembang_antarmuka_ioctl — Operasi kontrol perangkat.
- * Menyediakan operasi khusus seperti reset, set parameter,
- * diagnostik, dan identifikasi.
+ * pengembang_antarmuka_tulis — Tulis data ke perangkat
+ *
+ * Melakukan operasi tulis melalui register IC. Mendukung
+ * tulis 1 byte, 2 byte, 4 byte, dan multi-register.
+ * Untuk tulis 1/2 byte, dilakukan read-modify-write
+ * untuk menjaga byte lain dalam register yang sama.
  *
  * Parameter:
- *   nomor      — nomor antarmuka
- *   perintah   — kode perintah ioctl
- *   argumen    — argumen perintah (tergantung perintah)
- * Mengembalikan STATUS_OK jika berhasil.
- */
-int pengembang_antarmuka_ioctl(unsigned int nomor, uint32 perintah,
+ *   antarmuka — pointer ke AntarmukaPerangkat
+ *   offset    — offset register atau alamat tulis
+ *   buffer    — buffer data yang akan ditulis (const uint8*)
+ *   panjang   — jumlah byte yang akan ditulis
+ *
+ * Mengembalikan:
+ *   Jumlah byte yang berhasil ditulis (positif),
+ *   STATUS_GAGAL jika antarmuka tidak aktif,
+ *   STATUS_PARAMETAR_SALAH jika parameter NULL
+ * ================================================================ */
+int pengembang_antarmuka_tulis(AntarmukaPerangkat *antarmuka,
+                                uint32 offset,
+                                const uint8 *buffer,
+                                ukuran_t panjang)
+{
+    if (antarmuka == NULL || buffer == NULL) {
+        return STATUS_PARAMETAR_SALAH;
+    }
+
+    /* Pastikan antarmuka pernah dibuka */
+    if (antarmuka->jumlah_buka == 0) {
+        notulen_catat(NOTULEN_KESALAHAN,
+            "Antarmuka: Tulis gagal — antarmuka belum dibuka");
+        return STATUS_GAGAL;
+    }
+
+    /* Pastikan perangkat tersedia */
+    if (antarmuka->perangkat == NULL) {
+        return STATUS_GAGAL;
+    }
+
+    /* Tulis berdasarkan ukuran data */
+    if (panjang == 4) {
+        uint32 nilai;
+        salin_memori(&nilai, buffer, 4);
+        pengembang_kendali_tulis_register(
+            antarmuka->perangkat, offset, nilai);
+    } else if (panjang == 2) {
+        uint32 nilai;
+        uint16 data;
+        salin_memori(&data, buffer, 2);
+        nilai = pengembang_kendali_baca_register(
+                    antarmuka->perangkat, offset & 0xFC);
+        nilai &= ~(0xFFFF << ((offset & 0x03) * 8));
+        nilai |= ((uint32)data << ((offset & 0x03) * 8));
+        pengembang_kendali_tulis_register(
+            antarmuka->perangkat, offset & 0xFC, nilai);
+    } else if (panjang == 1) {
+        uint32 nilai;
+        uint8 data;
+        salin_memori(&data, buffer, 1);
+        nilai = pengembang_kendali_baca_register(
+                    antarmuka->perangkat, offset & 0xFC);
+        nilai &= ~(0xFF << ((offset & 0x03) * 8));
+        nilai |= ((uint32)data << ((offset & 0x03) * 8));
+        pengembang_kendali_tulis_register(
+            antarmuka->perangkat, offset & 0xFC, nilai);
+    } else {
+        /* Tulis multi-register */
+        ukuran_t i;
+        for (i = 0; i < panjang; i += 4) {
+            uint32 nilai;
+            ukuran_t sisa;
+            ukuran_t salin;
+
+            nilai = 0;
+            sisa = panjang - i;
+            salin = (sisa < 4) ? sisa : 4;
+            salin_memori(&nilai, buffer + i, salin);
+            pengembang_kendali_tulis_register(
+                antarmuka->perangkat,
+                offset + (uint32)i, nilai);
+        }
+    }
+
+    return (int)panjang;
+}
+
+/* ================================================================
+ * pengembang_antarmuka_ioctl — Operasi kendali khusus perangkat
+ *
+ * Menyediakan operasi khusus seperti reset, atur parameter,
+ * diagnostik, dan identifikasi. Kode perintah ioctl ditentukan
+ * oleh konstanta IOCTL_* di atas.
+ *
+ * Parameter:
+ *   antarmuka — pointer ke AntarmukaPerangkat
+ *   perintah  — kode perintah ioctl
+ *   argumen   — argumen perintah (tergantung perintah)
+ *
+ * Mengembalikan:
+ *   STATUS_OK jika berhasil,
+ *   STATUS_TIDAK_DIKENAL jika perintah tidak dikenali,
+ *   STATUS_PARAMETAR_SALAH jika parameter NULL
+ * ================================================================ */
+int pengembang_antarmuka_ioctl(AntarmukaPerangkat *antarmuka,
+                                uint32 perintah,
                                 uint32 argumen)
 {
-    AntarmukaPerangkat *ant;
-
-    if (nomor >= (unsigned int)jumlah_antarmuka) return STATUS_TIDAK_ADA;
-
-    ant = &tabel_antarmuka[nomor];
+    if (antarmuka == NULL) {
+        return STATUS_PARAMETAR_SALAH;
+    }
 
     switch (perintah) {
     case IOCTL_RESET:
         /* Reset IC */
-        if (ant->ic != NULL) {
-            return pengembang_kendali_reset_ic(ant->perangkat, ant->ic);
+        if (antarmuka->ic != NULL && antarmuka->perangkat != NULL) {
+            return pengembang_kendali_reset_ic(
+                antarmuka->ic, antarmuka->perangkat);
         }
-        break;
+        return STATUS_GAGAL;
 
     case IOCTL_SET_PARAMETER:
-        /* Set parameter IC ke nilai tertentu */
-        {
-            int nomor_param = (int)((argumen >> 16) & 0xFF);
-            uint32 nilai = argumen & 0xFFFF;
-            if (ant->ic != NULL) {
-                int hasil;
-                hasil = pengembang_kendali_set_parameter(ant->ic, nomor_param, nilai);
-                if (hasil == STATUS_OK && nomor_param < 8) {
-                    ant->parameter_aktif[nomor_param] = nilai;
-                }
-                return hasil;
-            }
+        /* Atur parameter IC ke nilai tertentu */
+        if (antarmuka->ic != NULL && antarmuka->perangkat != NULL) {
+            return pengembang_kendali_set_parameter(
+                antarmuka->ic, antarmuka->perangkat);
         }
-        break;
+        return STATUS_GAGAL;
 
     case IOCTL_GET_PARAMETER:
-        /* Baca parameter aktif */
-        {
-            int nomor_param = (int)(argumen & 0xFF);
-            if (nomor_param < 8) {
-                return (int)ant->parameter_aktif[nomor_param];
-            }
+        /* Baca parameter aktif — kembalikan melalui argumen */
+        if (antarmuka->ic != NULL && argumen < 8) {
+            return (int)antarmuka->ic->parameter_optimal[argumen];
         }
         return STATUS_PARAMETAR_SALAH;
 
     case IOCTL_DIAGNOSTIK:
         /* Jalankan diagnostik IC */
-        if (ant->ic != NULL) {
-            return pengembang_kendali_diagnostik(ant->perangkat, ant->ic);
+        if (antarmuka->ic != NULL && antarmuka->perangkat != NULL) {
+            return pengembang_kendali_diagnostik(
+                antarmuka->ic, antarmuka->perangkat);
         }
-        break;
+        return STATUS_GAGAL;
 
     case IOCTL_SET_KECEPATAN:
         /* Atur kecepatan (untuk jaringan/serial) */
-        if (ant->ic != NULL && ant->ic->jumlah_parameter > 0) {
-            if (argumen <= ant->ic->parameter_maks[0]) {
-                ant->parameter_aktif[0] = argumen;
+        if (antarmuka->ic != NULL &&
+            antarmuka->ic->jumlah_parameter > 0) {
+            if (argumen <= antarmuka->ic->parameter_maks[0]) {
+                pengembang_kendali_tulis_register(
+                    antarmuka->perangkat,
+                    antarmuka->alamat_basis, argumen);
                 return STATUS_OK;
             }
             /* Kecepatan melebihi maksimum — gunakan optimal */
-            ant->parameter_aktif[0] = ant->ic->parameter_optimal[0];
+            pengembang_kendali_tulis_register(
+                antarmuka->perangkat,
+                antarmuka->alamat_basis,
+                antarmuka->ic->parameter_optimal[0]);
             return STATUS_OK;
         }
-        break;
+        return STATUS_GAGAL;
 
     case IOCTL_GET_IDENTITAS:
-        /* Kembalikan identitas IC */
-        if (ant->ic != NULL) {
-            return (int)((uint32)ant->ic->vendor_id |
-                         ((uint32)ant->ic->perangkat_id << 16));
+        /* Kembalikan identitas IC (vendor_id | perangkat_id << 16) */
+        if (antarmuka->ic != NULL) {
+            return (int)((uint32)antarmuka->ic->vendor_id |
+                         ((uint32)antarmuka->ic->perangkat_id << 16));
         }
-        break;
+        return STATUS_GAGAL;
 
     default:
         return STATUS_TIDAK_DIKENAL;
     }
-
-    return STATUS_OK;
 }
 
 /* ================================================================
- * FUNGSI STATUS
- * ================================================================ */
-
-/*
- * pengembang_antarmuka_status — Dapatkan status perangkat.
- * Mengembalikan kondisi terkini perangkat melalui antarmuka.
+ * pengembang_antarmuka_status — Dapatkan status perangkat
+ *
+ * Memeriksa kondisi perangkat melalui peninjau dan
+ * mengembalikan status terkini antarmuka.
  *
  * Parameter:
- *   nomor — nomor antarmuka
- * Mengembalikan kode status (KONDISI_BAIK, dll.)
- */
-int pengembang_antarmuka_status(unsigned int nomor)
+ *   antarmuka — pointer ke AntarmukaPerangkat
+ *
+ * Mengembalikan:
+ *   KondisiPerangkat (KONDISI_BAIK, KONDISI_RUSAK, dll.)
+ *   KONDISI_TIDAK_DIKENAL jika parameter NULL
+ * ================================================================ */
+KondisiPerangkat pengembang_antarmuka_status(
+    AntarmukaPerangkat *antarmuka)
 {
-    AntarmukaPerangkat *ant;
+    if (antarmuka == NULL) {
+        return KONDISI_TIDAK_DIKENAL;
+    }
 
-    if (nomor >= (unsigned int)jumlah_antarmuka) return STATUS_TIDAK_ADA;
-
-    ant = &tabel_antarmuka[nomor];
+    /* Jika antarmuka belum dibuka, kembalikan kondisi dari data */
+    if (antarmuka->perangkat == NULL) {
+        return KONDISI_TERPUTUS;
+    }
 
     /* Verifikasi perangkat masih terhubung */
-    if (ant->perangkat != NULL) {
+    if (antarmuka->jumlah_buka > 0) {
         KondisiPerangkat kondisi;
-        kondisi = peninjau_verifikasi(ant->perangkat);
-        return (int)kondisi;
+        kondisi = peninjau_verifikasi(antarmuka->perangkat);
+        antarmuka->kondisi = kondisi;
+        return kondisi;
     }
 
-    return (int)KONDISI_TIDAK_DIKENAL;
+    /* Kembalikan kondisi yang tersimpan */
+    return antarmuka->kondisi;
 }
 
 /* ================================================================
- * FUNGSI BUKA/TUTUP
- * ================================================================ */
-
-/*
- * pengembang_antarmuka_buka — Buka antarmuka perangkat.
+ * pengembang_antarmuka_buka — Buka perangkat untuk digunakan
+ *
  * Menandai antarmuka sebagai aktif dan menyiapkan akses.
+ * Jika antarmuka sudah dibuka, tingkatkan jumlah_buka
+ * (mendukung pembukaan berulang dari lapisan berbeda).
  *
  * Parameter:
- *   nomor — nomor antarmuka
- * Mengembalikan STATUS_OK jika berhasil.
- */
-int pengembang_antarmuka_buka(unsigned int nomor)
+ *   antarmuka — pointer ke AntarmukaPerangkat
+ *
+ * Mengembalikan:
+ *   STATUS_OK jika berhasil,
+ *   STATUS_SIBUK jika antarmuka sedang digunakan (terkunci),
+ *   STATUS_PARAMETAR_SALAH jika parameter NULL
+ * ================================================================ */
+int pengembang_antarmuka_buka(AntarmukaPerangkat *antarmuka)
 {
-    AntarmukaPerangkat *ant;
-
-    if (nomor >= (unsigned int)jumlah_antarmuka) return STATUS_TIDAK_ADA;
-
-    ant = &tabel_antarmuka[nomor];
-
-    if (ant->status == ANTARMUKA_STATUS_BUKA) {
-        /* Sudah dibuka — tingkatkan jumlah buka */
-        ant->jumlah_buka++;
-        return STATUS_OK;
+    if (antarmuka == NULL) {
+        return STATUS_PARAMETAR_SALAH;
     }
 
-    if (ant->status == ANTARMUKA_STATUS_SIBUK) {
+    /* Cek apakah antarmuka terkunci */
+    if (antarmuka->terkunci == ANTARMUKA_TERKUNCI) {
         return STATUS_SIBUK;
     }
 
-    if (ant->status == ANTARMUKA_STATUS_KESALAHAN) {
+    /* Cek kondisi perangkat */
+    if (antarmuka->kondisi == KONDISI_RUSAK) {
+        notulen_catat(NOTULEN_KESALAHAN,
+            "Antarmuka: Perangkat rusak, tidak dapat dibuka");
         return STATUS_GAGAL;
     }
 
-    /* Buka antarmuka */
-    ant->status = ANTARMUKA_STATUS_BUKA;
-    ant->jumlah_buka = 1;
+    /* Tingkatkan jumlah buka */
+    antarmuka->jumlah_buka++;
 
-    /* Set parameter ke nilai optimal saat pertama kali dibuka */
-    if (ant->ic != NULL) {
-        int i;
-        for (i = 0; i < ant->ic->jumlah_parameter && i < 8; i++) {
-            ant->parameter_aktif[i] = ant->ic->parameter_optimal[i];
-        }
+    /* Terapkan parameter optimal saat pertama kali dibuka */
+    if (antarmuka->jumlah_buka == 1 && antarmuka->ic != NULL) {
+        ic_isi_parameter_optimal(antarmuka->ic, antarmuka->perangkat);
     }
 
-    return STATUS_OK;
-}
-
-/*
- * pengembang_antarmuka_tutup — Tutup antarmuka perangkat.
- * Menandai antarmuka sebagai tidak aktif jika semua
- * pengguna telah menutupnya.
- *
- * Parameter:
- *   nomor — nomor antarmuka
- * Mengembalikan STATUS_OK jika berhasil.
- */
-int pengembang_antarmuka_tutup(unsigned int nomor)
-{
-    AntarmukaPerangkat *ant;
-
-    if (nomor >= (unsigned int)jumlah_antarmuka) return STATUS_TIDAK_ADA;
-
-    ant = &tabel_antarmuka[nomor];
-
-    if (ant->status != ANTARMUKA_STATUS_BUKA) {
-        return STATUS_OK;    /* Sudah ditutup */
-    }
-
-    if (ant->jumlah_buka > 1) {
-        ant->jumlah_buka--;
-        return STATUS_OK;
-    }
-
-    /* Tutup antarmuka */
-    ant->status = ANTARMUKA_STATUS_TUTUP;
-    ant->jumlah_buka = 0;
+    /* Kunci antarmuka selama digunakan */
+    antarmuka->terkunci = ANTARMUKA_TERKUNCI;
+    antarmuka->kondisi = KONDISI_BAIK;
 
     return STATUS_OK;
 }
 
 /* ================================================================
- * FUNGSI DAFTAR
- * ================================================================ */
-
-/*
- * pengembang_antarmuka_daftar — Daftar semua antarmuka.
- * Mengisi array dengan nomor antarmuka yang tersedia.
+ * pengembang_antarmuka_tutup — Tutup perangkat
+ *
+ * Menandai antarmuka sebagai tidak aktif jika semua
+ * pengguna telah menutupnya. Jumlah buka dikurangi;
+ * jika mencapai nol, antarmuka dilepas kuncinya.
  *
  * Parameter:
- *   daftar — array penampung nomor antarmuka
- *   maks   — jumlah maksimum entri
- * Mengembalikan jumlah antarmuka yang terdaftar.
- */
-int pengembang_antarmuka_daftar(uint32 daftar[], int maks)
+ *   antarmuka — pointer ke AntarmukaPerangkat
+ *
+ * Mengembalikan:
+ *   STATUS_OK jika berhasil,
+ *   STATUS_PARAMETAR_SALAH jika parameter NULL
+ * ================================================================ */
+int pengembang_antarmuka_tutup(AntarmukaPerangkat *antarmuka)
+{
+    if (antarmuka == NULL) {
+        return STATUS_PARAMETAR_SALAH;
+    }
+
+    /* Jika belum pernah dibuka, tidak perlu ditutup */
+    if (antarmuka->jumlah_buka == 0) {
+        return STATUS_OK;
+    }
+
+    /* Kurangi jumlah buka */
+    antarmuka->jumlah_buka--;
+
+    /* Jika tidak ada lagi yang membuka, lepaskan kunci */
+    if (antarmuka->jumlah_buka == 0) {
+        antarmuka->terkunci = ANTARMUKA_BEBAS;
+        antarmuka->kondisi = KONDISI_SIAGA;
+    }
+
+    return STATUS_OK;
+}
+
+/* ================================================================
+ * pengembang_antarmuka_daftar — Daftar semua antarmuka
+ *
+ * Mengisi array dengan struktur AntarmukaPerangkat yang
+ * mewakili semua antarmuka perangkat yang tersedia.
+ *
+ * Parameter:
+ *   daftar — array penampung AntarmukaPerangkat
+ *   maks   — jumlah maksimum entri yang dapat ditampung
+ *
+ * Mengembalikan:
+ *   Jumlah antarmuka yang terdaftar (positif),
+ *   STATUS_PARAMETAR_SALAH jika daftar NULL
+ * ================================================================ */
+int pengembang_antarmuka_daftar(AntarmukaPerangkat daftar[], int maks)
 {
     int i;
-    int jumlah = (jumlah_antarmuka < maks) ? jumlah_antarmuka : maks;
+    int jumlah;
 
+    if (daftar == NULL) {
+        return STATUS_PARAMETAR_SALAH;
+    }
+
+    /* Tentukan jumlah yang akan disalin */
+    jumlah = (jumlah_antarmuka < maks) ? jumlah_antarmuka : maks;
+
+    /* Salin setiap entri antarmuka */
     for (i = 0; i < jumlah; i++) {
-        daftar[i] = tabel_antarmuka[i].nomor;
+        daftar[i] = tabel_antarmuka[i];
     }
 
     return jumlah;

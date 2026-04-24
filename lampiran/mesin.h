@@ -376,8 +376,10 @@ ukuran_t mesin_deteksi_ram(void);
 void mesin_cpuid(uint32 daun, uint32 *eax, uint32 *ebx,
                  uint32 *ecx, uint32 *edx);
 
-/* Handler interupsi umum */
-void mesin_handler_interupsi(void);
+/* Penanganan interupsi bersifat spesifik per arsitektur;
+ * tidak ada fungsi handler umum yang berdiri sendiri.
+ * Setiap arsitektur mendefinisikan handler-nya sendiri
+ * melalui IDT (x86/x64) atau tabel vektor (ARM). */
 
 /* Kirim End-of-Interrupt ke PIC */
 void mesin_kirim_eoi(uint8 irq);

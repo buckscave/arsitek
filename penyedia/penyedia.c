@@ -15,6 +15,7 @@
 
 #include "../lampiran/arsitek.h"
 #include "../lampiran/mesin.h"
+#include "../lampiran/penyedia.h"
 
 /* Penanda global */
 int penyedia_siap = SALAH;
@@ -96,5 +97,43 @@ int penyedia_sediakan_interupsi(DataPerangkat *perangkat, unsigned int nomor_int
     return STATUS_OK;
 }
 
-/* Alokasi memori — didelegasikan ke konstruksi/memori.c */
-/* Implementasi ada di konstruksi/x86/memori.c dan seterusnya */
+/* ================================================================
+ * CATATAN DESAIN: ALOKASI MEMORI PER ARSITEKTUR
+ *
+ * Fungsi penyedia_alokasi_memori() dan penyedia_bebaskan_memori()
+ * TIDAK diimplementasikan di file ini. Implementasinya berada
+ * di file konstruksi/<arsitektur>/memori.c masing-masing:
+ *
+ *   konstruksi/x86/memori.c   — untuk arsitektur IA-32 (x86)
+ *   konstruksi/x64/memori.c   — untuk arsitektur AMD64 (x64)
+ *   konstruksi/arm32/memori.c — untuk arsitektur ARM32 (ARMv7)
+ *   konstruksi/arm64/memori.c — untuk arsitektur ARM64 (AArch64)
+ *
+ * Ini bukan kesalahan desain, melainkan keputusan arsitektural
+ * yang disengaja. Alasannya:
+ *
+ *   1. Alokasi memori fisik bergantung langsung pada manajer
+ *      halaman fisik (physical page manager) yang berbeda
+ *      per arsitektur — bitmap halaman 4 KB pada x86,
+ *      section mapping 1 MB pada ARM32, halaman 4 KB/16 KB
+ *      pada ARM64, dan halaman 4 KB/2 MB pada x64.
+ *
+ *   2. Ukuran halaman (page/section) berbeda per arsitektur:
+ *      x86: 4 KB, x64: 4 KB/2 MB, ARM32: 4 KB/1 MB,
+ *      ARM64: 4 KB/16 KB. Struktur bitmap dan rumus alokasi
+ *      harus disesuaikan dengan ukuran halaman masing-masing.
+ *
+ *   3. Tata letak memori (memory layout) berbeda: alamat
+ *      kernel, alamat VGA, alamat MMIO, dan region yang
+ *      dicadangkan berbeda pada setiap arsitektur.
+ *
+ *   4. Saat penautan (linking), hanya SATU arsitektur yang
+ *      dikompilasi, sehingga tidak ada konflik simbol.
+ *      Semua file konstruksi/<arsitektur>/memori.c mendefinisikan
+ *      simbol yang sama, tetapi hanya satu yang masuk ke
+ *      biner akhir.
+ *
+ * Deklarasi fungsi ada di lampiran/penyedia.h agar seluruh
+ * modul kernel dapat memanggil fungsi alokasi memori tanpa
+ * mengetahui arsitektur target.
+ * ================================================================ */

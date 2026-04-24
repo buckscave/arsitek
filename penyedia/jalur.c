@@ -18,6 +18,7 @@
 #include "../lampiran/arsitek.h"
 #include "../lampiran/mesin.h"
 #include "../lampiran/peninjau.h"
+#include "../lampiran/penyedia.h"
 
 /* ================================================================
  * KONSTANTA INTERNAL

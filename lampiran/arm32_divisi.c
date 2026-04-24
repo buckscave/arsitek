@@ -2,71 +2,112 @@
  * arm32_divisi.c
  *
  * Implementasi fungsi pembagian ARM32 untuk mode freestanding.
- * Compiler ARM menghasilkan panggilan ke __aeabi_uidivmod untuk
- * operasi pembagian unsigned. Karena -nostdlib, kita harus
- * menyediakan implementasi sendiri.
+ * Compiler ARM menghasilkan panggilan ke __aeabi_uidivmod dan
+ * __aeabi_uidiv untuk operasi pembagian unsigned. Karena kita
+ * menggunakan -nostdlib, kita harus menyediakan implementasi
+ * sendiri.
+ *
+ * Fungsi yang diimplementasikan:
+ *   __aeabi_uidivmod — pembagian unsigned 32-bit, mengembalikan
+ *                       hasil bagi di r0 dan sisa di r1
+ *   __aeabi_uidiv    — pembagian unsigned 32-bit, hanya hasil bagi
+ *
+ * Algoritma: pembagian panjang (long division) bit per bit.
+ * Mulai dari bit tertinggi, geser sisa ke kiri, tambahkan
+ * bit pembilang, dan kurangi penyebut jika sisa >= penyebut.
  */
 
-/* __aeabi_uidivmod — pembagian unsigned 32-bit
- * Mengembalikan hasil bagi di r0, sisa di r1
- * Konvensi pemanggilan ARM ABI */
-unsigned __aeabi_uidivmod(unsigned numerator, unsigned denominator)
+/* ================================================================
+ * __aeabi_uidivmod — Pembagian unsigned 32-bit dengan sisa.
+ *
+ * Konvensi ARM EABI: hasil bagi dikembalikan di r0,
+ * sisa pembagian di r1. Karena C tidak bisa mengembalikan
+ * dua nilai secara langsung, kita menggunakan inline assembly
+ * untuk menyetel kedua register sesuai ABI.
+ *
+ * Parameter:
+ *   pembilang  — angka yang dibagi (r0)
+ *   penyebut   — angka pembagi (r1)
+ *
+ * Mengembalikan: hasil bagi di r0, sisa di r1.
+ * ================================================================ */
+unsigned __aeabi_uidivmod(unsigned pembilang, unsigned penyebut)
 {
-    unsigned quotient = 0;
-    unsigned remainder = 0;
+    unsigned hasil_bagi = 0;
+    unsigned sisa = 0;
     unsigned bit;
 
-    if (denominator == 0) {
-        /* Pembagian dengan nol — kembalikan 0 */
+    if (penyebut == 0) {
+        /* Pembagian dengan nol — kembalikan nol untuk kedua nilai */
+        __asm__ volatile (
+            "mov r0, #0\n\t"
+            "mov r1, #0"
+            :
+            :
+            : "r0", "r1"
+        );
         return 0;
     }
 
-    /* Long division algorithm */
-    for (bit = 0x80000000; bit != 0; bit >>= 1) {
-        remainder <<= 1;
-        if (numerator & bit) {
-            remainder |= 1;
+    /* Algoritma pembagian panjang:
+     * Untuk setiap bit dari tertinggi ke terendah:
+     *   1. Geser sisa ke kiri satu posisi
+     *   2. Ambil bit pembilang yang sesuai
+     *   3. Jika sisa >= penyebut, kurangi dan set bit hasil bagi */
+    for (bit = 0x80000000U; bit != 0; bit >>= 1) {
+        sisa <<= 1;
+        if (pembilang & bit) {
+            sisa |= 1;
         }
-        if (remainder >= denominator) {
-            remainder -= denominator;
-            quotient |= bit;
+        if (sisa >= penyebut) {
+            sisa -= penyebut;
+            hasil_bagi |= bit;
         }
     }
 
-    /* ARM ABI: quotient in r0, remainder in r1
-     * We return quotient and set remainder via pointer convention.
-     * Actually, __aeabi_uidivmod returns {quotient, remainder} in {r0, r1}.
-     * In C, we can't directly return two values in two registers.
-     * Use inline assembly to properly set both registers. */
+    /* Set both r0 (hasil bagi) and r1 (sisa) per ARM EABI */
     __asm__ volatile (
         "mov r0, %0\n\t"
-        "mov r1, %1\n\t"
+        "mov r1, %1"
         :
-        : "r"(quotient), "r"(remainder)
+        : "r"(hasil_bagi), "r"(sisa)
         : "r0", "r1"
     );
 
-    return quotient;
+    return hasil_bagi;
 }
 
-/* __aeabi_uidiv — pembagian unsigned 32-bit (hanya hasil bagi) */
-unsigned __aeabi_uidiv(unsigned numerator, unsigned denominator)
+/* ================================================================
+ * __aeabi_uidiv — Pembagian unsigned 32-bit (hanya hasil bagi).
+ *
+ * Parameter:
+ *   pembilang — angka yang dibagi
+ *   penyebut  — angka pembagi
+ *
+ * Mengembalikan: hasil bagi pembagian.
+ * ================================================================ */
+unsigned __aeabi_uidiv(unsigned pembilang, unsigned penyebut)
 {
-    unsigned quotient = 0;
+    unsigned hasil_bagi = 0;
+    unsigned sisa = 0;
     unsigned bit;
 
-    if (denominator == 0) {
+    if (penyebut == 0) {
         return 0;
     }
 
-    for (bit = 0x80000000; bit != 0; bit >>= 1) {
-        quotient <<= 1;
-        if (numerator >= denominator) {
-            numerator -= denominator;
-            quotient |= 1;
+    /* Algoritma pembagian panjang yang sama,
+     * tetapi kita hanya mengembalikan hasil bagi */
+    for (bit = 0x80000000U; bit != 0; bit >>= 1) {
+        sisa <<= 1;
+        if (pembilang & bit) {
+            sisa |= 1;
         }
-        denominator >>= 1;
+        if (sisa >= penyebut) {
+            sisa -= penyebut;
+            hasil_bagi |= bit;
+        }
     }
 
-    return quotient;
+    return hasil_bagi;
 }

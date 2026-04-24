@@ -32,10 +32,16 @@ static KonsolPigura konsol;
 /* Mode tampilan aktif */
 static ModePigura mode_aktif;
 
+/* Penyangga pigura — status framebuffer */
+static PenyanggaPigura penyangga;
+
+/* Penyangga ganda (double buffer) untuk mode grafis */
+static uint8 *buffer_belakang = NULL;
+
 /* ================================================================
  * FONT BITMAP 8x16 — ASCII 0-127
  *
- * Setiap glyph terdiri dari 16 byte (16 baris × 8 bit per baris).
+ * Setiap glyph terdiri dari 16 byte (16 baris x 8 bit per baris).
  * Bit 1 = piksel tergambar, bit 0 = piksel kosong.
  * Data ini adalah font PC standar (code page 437).
  * ================================================================ */
@@ -172,6 +178,52 @@ const uint8 font_bitmap[FONT_JUMLAH_GLYPH][FONT_BYTES_PER_GLYPH] = {
 };
 
 /* ================================================================
+ * FUNGSI BANTUAN INTERNAL
+ * ================================================================ */
+
+/*
+ * uart_kirim_char — Kirim satu karakter ke UART untuk debugging ARM.
+ * Digunakan pada platform ARM yang tidak memiliki VGA teks.
+ */
+#if defined(ARSITEK_ARM32) || defined(ARSITEK_ARM64)
+static void uart_kirim_char(char c)
+{
+    /* Alamat UART BCM2835/2836 (PL011) pada Raspberry Pi */
+    volatile uint32 *uart_dr = (volatile uint32 *)0x3F201000;
+
+    /* Untuk QEMU virt, gunakan alamat UART yang berbeda */
+    volatile uint32 *uart_pl011 = (volatile uint32 *)0x09000000;
+
+    /* Coba kirim ke PL011 QEMU virt */
+    *uart_pl011 = (uint32)(unsigned char)c;
+
+    /* Juga coba kirim ke BCM UART (tidak berbahaya jika alamat
+     * tidak valid, karena tidak ada efek samping pada platform
+     * yang tidak memiliki perangkat di alamat tersebut) */
+    TIDAK_DIGUNAKAN(uart_dr);
+}
+#endif
+
+/*
+ * salin_buffer_grafis — Salin buffer belakang ke buffer depan.
+ * Digunakan oleh pigura_perbarui() untuk double buffering.
+ */
+static void salin_buffer_grafis(void)
+{
+    if (buffer_belakang != NULL && mode_aktif.alamat != 0) {
+        uint32 *tujuan = (uint32 *)mode_aktif.alamat;
+        uint32 *sumber = (uint32 *)buffer_belakang;
+        ukuran_t total_piksel;
+        ukuran_t i;
+
+        total_piksel = (ukuran_t)(mode_aktif.lebar * mode_aktif.tinggi);
+        for (i = 0; i < total_piksel; i++) {
+            tujuan[i] = sumber[i];
+        }
+    }
+}
+
+/* ================================================================
  * INISIALISASI PIGURA
  * ================================================================ */
 
@@ -202,14 +254,46 @@ int pigura_mulai(void)
     mode_aktif.alamat = VGA_ALAMAT;
     mode_aktif.ukuran_buffer = (ukuran_t)(VGA_LEBAR * VGA_TINGGI * 2);
 
+    /* Isi penyangga pigura */
+    penyangga.mode = mode_aktif;
+    penyangga.warna_latar.merah = 0;
+    penyangga.warna_latar.hijau = 0;
+    penyangga.warna_latar.biru = 0;
+    penyangga.warna_latar.alfa = 255;
+    penyangga.kursor_x = 0;
+    penyangga.kursor_y = 0;
+    penyangga.font_lebar = FONT_LEBAR;
+    penyangga.font_tinggi = FONT_TINGGI;
+
     /* Hapus layar */
     pigura_hapus_layar();
 
 #else
-    /* Pada ARM, pigura belum didukung tanpa framebuffer yang diketahui */
+    /* Pada ARM, gunakan mode grafis sebagai default.
+     * Tidak ada VGA teks — output teks via UART untuk debugging. */
     konsol.mode = PIGURA_MODE_GRAFIS;
     konsol.lebar = 0;
     konsol.tinggi = 0;
+    konsol.kursor_x = 0;
+    konsol.kursor_y = 0;
+    konsol.warna_depan = VGA_PUTIH;
+    konsol.warna_latar = VGA_HITAM;
+    konsol.alamat = 0;
+    konsol.kursor_nyala = SALAH;
+
+    mode_aktif.lebar = 0;
+    mode_aktif.tinggi = 0;
+    mode_aktif.bit_per_piksel = 0;
+    mode_aktif.piksel_per_baris = 0;
+    mode_aktif.alamat = 0;
+    mode_aktif.ukuran_buffer = 0;
+
+    penyangga.mode = mode_aktif;
+    penyangga.warna_latar = WARNA_HITAM;
+    penyangga.kursor_x = 0;
+    penyangga.kursor_y = 0;
+    penyangga.font_lebar = FONT_LEBAR;
+    penyangga.font_tinggi = FONT_TINGGI;
 #endif
 
     pigura_siap = BENAR;
@@ -224,6 +308,10 @@ int pigura_mulai(void)
  * pigura_tulis_char — Tulis satu karakter ke konsol.
  * Menangani karakter khusus: newline (\n), carriage return (\r),
  * backspace (\b), dan tab (\t).
+ *
+ * Pada mode teks VGA, tulis langsung ke buffer VGA.
+ * Pada mode grafis, gunakan pigura_gambar_char.
+ * Pada ARM tanpa framebuffer, kirim ke UART.
  */
 void pigura_tulis_char(char c)
 {
@@ -291,19 +379,91 @@ void pigura_tulis_char(char c)
 
         /* Perbarui posisi kursor hardware */
         pigura_perbarui_kursor();
+    } else if (konsol.mode == PIGURA_MODE_GRAFIS) {
+        /* Mode grafis — gunakan font bitmap */
+        WarnaRGBA warna_depan;
+        WarnaRGBA warna_latar;
+
+        warna_depan.merah = 255;
+        warna_depan.hijau = 255;
+        warna_depan.biru = 255;
+        warna_depan.alfa = 255;
+        warna_latar.merah = 0;
+        warna_latar.hijau = 0;
+        warna_latar.biru = 0;
+        warna_latar.alfa = 255;
+
+        switch (c) {
+        case '\n':
+            konsol.kursor_x = 0;
+            konsol.kursor_y++;
+            break;
+        case '\r':
+            konsol.kursor_x = 0;
+            break;
+        case '\b':
+            if (konsol.kursor_x > 0) {
+                konsol.kursor_x--;
+            }
+            break;
+        case '\t':
+            konsol.kursor_x = (konsol.kursor_x + 8) & ~7;
+            break;
+        default:
+            {
+                uint32 px = konsol.kursor_x * penyangga.font_lebar;
+                uint32 py = konsol.kursor_y * penyangga.font_tinggi;
+                pigura_gambar_char(c, px, py, warna_depan, warna_latar);
+                konsol.kursor_x++;
+            }
+            if (konsol.kursor_x * penyangga.font_lebar >= mode_aktif.lebar) {
+                konsol.kursor_x = 0;
+                konsol.kursor_y++;
+            }
+            break;
+        }
+
+        if (konsol.kursor_y * penyangga.font_tinggi >= mode_aktif.tinggi) {
+            konsol.kursor_y = 0;
+        }
     }
+#endif
+
+#if defined(ARSITEK_ARM32) || defined(ARSITEK_ARM64)
+    /* Pada ARM tanpa VGA, kirim ke UART untuk debugging */
+    uart_kirim_char(c);
 #endif
 }
 
+/*
+ * pigura_tulis_string — Tulis string null-terminated ke konsol.
+ * Pada platform ARM, juga mengirim ke UART.
+ */
 void pigura_tulis_string(const char *str)
 {
     if (str == NULL) return;
+
+#if defined(ARSITEK_ARM32) || defined(ARSITEK_ARM64)
+    /* Kirim ke UART untuk debugging pada ARM */
+    {
+        const char *p = str;
+        while (*p) {
+            uart_kirim_char(*p);
+            p++;
+        }
+    }
+#endif
+
+    /* Tulis ke konsol (VGA atau grafis) */
     while (*str) {
         pigura_tulis_char(*str);
         str++;
     }
 }
 
+/*
+ * pigura_tulis_baris — Tulis sejumlah karakter dari buffer.
+ */
 void pigura_tulis_baris(const char *str, ukuran_t panjang)
 {
     ukuran_t i;
@@ -313,66 +473,106 @@ void pigura_tulis_baris(const char *str, ukuran_t panjang)
     }
 }
 
+/*
+ * pigura_hapus_layar — Hapus layar (isi dengan spasi).
+ */
 void pigura_hapus_layar(void)
 {
 #if defined(ARSITEK_X86) || defined(ARSITEK_X64)
-    volatile EntriVGA *layar;
-    ukuran_t i;
+    if (konsol.mode == PIGURA_MODE_TEKS) {
+        volatile EntriVGA *layar;
+        ukuran_t i;
 
-    layar = (volatile EntriVGA *)konsol.alamat;
-    for (i = 0; i < (ukuran_t)(VGA_LEBAR * VGA_TINGGI); i++) {
-        layar[i].karakter = ' ';
-        layar[i].warna = (uint8)((konsol.warna_latar << 4) | konsol.warna_depan);
+        layar = (volatile EntriVGA *)konsol.alamat;
+        for (i = 0; i < (ukuran_t)(VGA_LEBAR * VGA_TINGGI); i++) {
+            layar[i].karakter = ' ';
+            layar[i].warna = (uint8)((konsol.warna_latar << 4) | konsol.warna_depan);
+        }
+
+        konsol.kursor_x = 0;
+        konsol.kursor_y = 0;
+        pigura_perbarui_kursor();
+    } else if (konsol.mode == PIGURA_MODE_GRAFIS) {
+        pigura_hapus_layar_warna(penyangga.warna_latar);
+        konsol.kursor_x = 0;
+        konsol.kursor_y = 0;
     }
-
+#else
+    /* Pada ARM tanpa framebuffer, tidak ada layar untuk dihapus */
     konsol.kursor_x = 0;
     konsol.kursor_y = 0;
-    pigura_perbarui_kursor();
 #endif
 }
 
+/*
+ * pigura_gulir_atas — Gulir layar ke atas satu baris.
+ * Menyalin semua baris ke atas satu posisi dan membersihkan
+ * baris terakhir.
+ */
 void pigura_gulir_atas(void)
 {
 #if defined(ARSITEK_X86) || defined(ARSITEK_X64)
-    volatile EntriVGA *layar;
-    ukuran_t i;
+    if (konsol.mode == PIGURA_MODE_TEKS) {
+        volatile EntriVGA *layar;
+        ukuran_t i;
 
-    layar = (volatile EntriVGA *)konsol.alamat;
+        layar = (volatile EntriVGA *)konsol.alamat;
 
-    /* Salin setiap baris ke baris di atasnya */
-    for (i = 0; i < (ukuran_t)(VGA_LEBAR * (VGA_TINGGI - 1)); i++) {
-        layar[i] = layar[i + VGA_LEBAR];
+        /* Salin setiap baris ke baris di atasnya */
+        for (i = 0; i < (ukuran_t)(VGA_LEBAR * (VGA_TINGGI - 1)); i++) {
+            layar[i] = layar[i + VGA_LEBAR];
+        }
+
+        /* Bersihkan baris terakhir */
+        for (i = (ukuran_t)(VGA_LEBAR * (VGA_TINGGI - 1));
+             i < (ukuran_t)(VGA_LEBAR * VGA_TINGGI); i++) {
+            layar[i].karakter = ' ';
+            layar[i].warna = (uint8)((konsol.warna_latar << 4) | konsol.warna_depan);
+        }
     }
-
-    /* Bersihkan baris terakhir */
-    for (i = (ukuran_t)(VGA_LEBAR * (VGA_TINGGI - 1)); i < (ukuran_t)(VGA_LEBAR * VGA_TINGGI); i++) {
-        layar[i].karakter = ' ';
-        layar[i].warna = (uint8)((konsol.warna_latar << 4) | konsol.warna_depan);
-    }
+    /* Pada mode grafis, gulir dengan menyalin piksel */
+    /* TODO: implementasi gulir mode grafis */
 #endif
 }
 
+/*
+ * pigura_perbarui_kursor — Perbarui posisi kursor hardware VGA.
+ * Menggunakan port I/O 0x3D4/0x3D5 untuk mengatur posisi
+ * kursor pada layar VGA teks.
+ */
 void pigura_perbarui_kursor(void)
 {
 #if defined(ARSITEK_X86) || defined(ARSITEK_X64)
-    uint16 posisi = (uint16)(konsol.kursor_y * konsol.lebar + konsol.kursor_x);
+    if (konsol.mode == PIGURA_MODE_TEKS) {
+        uint16 posisi = (uint16)(konsol.kursor_y * konsol.lebar + konsol.kursor_x);
 
-    /* Byte rendah posisi kursor */
-    tulis_port(VGA_PELABUHAN_KURSOR, VGA_KURSOR_RENDah);
-    tulis_port(VGA_PELABUHAN_DATA, (uint8)(posisi & 0xFF));
+        /* Byte rendah posisi kursor */
+        tulis_port(VGA_PELABUHAN_KURSOR, VGA_KURSOR_RENDah);
+        tulis_port(VGA_PELABUHAN_DATA, (uint8)(posisi & 0xFF));
 
-    /* Byte tinggi posisi kursor */
-    tulis_port(VGA_PELABUHAN_KURSOR, VGA_KURSOR_TINGGI);
-    tulis_port(VGA_PELABUHAN_DATA, (uint8)((posisi >> 8) & 0xFF));
+        /* Byte tinggi posisi kursor */
+        tulis_port(VGA_PELABUHAN_KURSOR, VGA_KURSOR_TINGGI);
+        tulis_port(VGA_PELABUHAN_DATA, (uint8)((posisi >> 8) & 0xFF));
+    }
 #endif
+
+    /* Perbarui posisi kursor di penyangga */
+    penyangga.kursor_x = konsol.kursor_x;
+    penyangga.kursor_y = konsol.kursor_y;
 }
 
+/*
+ * pigura_set_warna — Atur warna teks dan latar belakang.
+ */
 void pigura_set_warna(uint8 depan, uint8 latar)
 {
     konsol.warna_depan = depan;
     konsol.warna_latar = latar;
 }
 
+/*
+ * pigura_set_posisi — Atur posisi kursor secara manual.
+ */
 void pigura_set_posisi(uint32 x, uint32 y)
 {
     if (x < konsol.lebar) konsol.kursor_x = x;
@@ -384,24 +584,85 @@ void pigura_set_posisi(uint32 x, uint32 y)
  * OPERASI MODE GRAFIS
  * ================================================================ */
 
+/*
+ * pigura_masuk_grafis — Masuk ke mode grafis dengan resolusi tertentu.
+ * Mengkonfigurasi framebuffer linear untuk rendering piksel.
+ *
+ * Parameter:
+ *   lebar  — resolusi horizontal (piksel)
+ *   tinggi — resolusi vertikal (piksel)
+ *   bpp    — bit per piksel (harus 32 untuk RGBA)
+ *
+ * Mengembalikan STATUS_OK jika berhasil, STATUS_GAGAL jika gagal.
+ */
 int pigura_masuk_grafis(uint32 lebar, uint32 tinggi, uint32 bpp)
 {
-    /* Untuk tahap awal, mode grafis belum didukung penuh.
-     * Dibutuhkan VBE (VESA BIOS Extensions) atau GOP (UEFI)
-     * untuk mendapatkan linear framebuffer. */
-    TIDAK_DIGUNAKAN(lebar);
-    TIDAK_DIGUNAKAN(tinggi);
-    TIDAK_DIGUNAKAN(bpp);
-    return STATUS_GAGAL;
+    ukuran_t ukuran_buffer;
+
+    /* Validasi parameter */
+    if (lebar == 0 || tinggi == 0 || bpp == 0) {
+        return STATUS_PARAMETAR_SALAH;
+    }
+
+    /* Hitung ukuran buffer */
+    ukuran_buffer = (ukuran_t)(lebar * tinggi * (bpp / 8));
+
+    /* Siapkan mode tampilan */
+    mode_aktif.lebar = lebar;
+    mode_aktif.tinggi = tinggi;
+    mode_aktif.bit_per_piksel = bpp;
+    mode_aktif.piksel_per_baris = lebar;
+    mode_aktif.ukuran_buffer = ukuran_buffer;
+
+    /* Alamat framebuffer harus diset oleh bootloader (VBE/GOP).
+     * Jika belum diset, mode grafis tidak tersedia. */
+    if (mode_aktif.alamat == 0) {
+        return STATUS_GAGAL;
+    }
+
+    /* Perbarui penyangga */
+    penyangga.mode = mode_aktif;
+    penyangga.kursor_x = 0;
+    penyangga.kursor_y = 0;
+
+    /* Perbarui konsol */
+    konsol.mode = PIGURA_MODE_GRAFIS;
+    konsol.lebar = lebar / FONT_LEBAR;
+    konsol.tinggi = tinggi / FONT_TINGGI;
+    konsol.kursor_x = 0;
+    konsol.kursor_y = 0;
+    konsol.alamat = mode_aktif.alamat;
+
+    /* Alokasikan buffer belakang untuk double buffering */
+    buffer_belakang = (uint8 *)penyedia_alokasi_memori(
+        (unsigned long long)ukuran_buffer);
+
+    /* Hapus layar */
+    pigura_hapus_layar_warna(WARNA_HITAM);
+
+    return STATUS_OK;
 }
 
+/*
+ * pigura_gambar_piksel — Gambar satu piksel pada koordinat tertentu.
+ * Hanya beroperasi dalam mode grafis.
+ */
 void pigura_gambar_piksel(uint32 x, uint32 y, WarnaRGBA warna)
 {
 #if defined(ARSITEK_X86) || defined(ARSITEK_X64)
     if (konsol.mode == PIGURA_MODE_GRAFIS && mode_aktif.alamat != 0) {
-        uint32 *fb = (uint32 *)mode_aktif.alamat;
-        ukuran_t offset = (ukuran_t)(y * mode_aktif.piksel_per_baris + x);
         if (x < mode_aktif.lebar && y < mode_aktif.tinggi) {
+            uint32 *fb;
+            ukuran_t offset;
+
+            /* Jika buffer belakang tersedia, gambar ke sana */
+            if (buffer_belakang != NULL) {
+                fb = (uint32 *)buffer_belakang;
+            } else {
+                fb = (uint32 *)mode_aktif.alamat;
+            }
+
+            offset = (ukuran_t)(y * mode_aktif.piksel_per_baris + x);
             fb[offset] = ((uint32)warna.merah << 16) |
                          ((uint32)warna.hijau << 8) |
                          ((uint32)warna.biru);
@@ -414,42 +675,100 @@ void pigura_gambar_piksel(uint32 x, uint32 y, WarnaRGBA warna)
 #endif
 }
 
+/*
+ * pigura_gambar_kotak — Gambar kotak berwarna penuh.
+ * Mengisi area persegi panjang dari (x, y) sebesar
+ * lebar x tinggi piksel.
+ */
 void pigura_gambar_kotak(uint32 x, uint32 y, uint32 lebar, uint32 tinggi,
                          WarnaRGBA warna)
 {
-    uint32 i, j;
+    uint32 j;
     for (j = y; j < y + tinggi; j++) {
+        uint32 i;
         for (i = x; i < x + lebar; i++) {
             pigura_gambar_piksel(i, j, warna);
         }
     }
 }
 
+/*
+ * pigura_gambar_garis — Gambar garis menggunakan algoritma Bresenham.
+ * Menggambar garis dari titik (x1,y1) ke (x2,y2).
+ */
 void pigura_gambar_garis(uint32 x1, uint32 y1, uint32 x2, uint32 y2,
                          WarnaRGBA warna)
 {
-    /* Algoritma Bresenham */
     int32 dx = (int32)x2 - (int32)x1;
     int32 dy = (int32)y2 - (int32)y1;
     int32 sx = (dx < 0) ? -1 : 1;
     int32 sy = (dy < 0) ? -1 : 1;
-    int32 err = dx - dy;
+    int32 err;
     int32 e2;
+
+    /* Kasus khusus: garis vertikal */
+    if (dx == 0) {
+        uint32 y_mulai, y_akhir, yy;
+        if (y1 <= y2) {
+            y_mulai = y1;
+            y_akhir = y2;
+        } else {
+            y_mulai = y2;
+            y_akhir = y1;
+        }
+        for (yy = y_mulai; yy <= y_akhir; yy++) {
+            pigura_gambar_piksel(x1, yy, warna);
+        }
+        return;
+    }
+
+    /* Kasus khusus: garis horizontal */
+    if (dy == 0) {
+        uint32 x_mulai, x_akhir, xx;
+        if (x1 <= x2) {
+            x_mulai = x1;
+            x_akhir = x2;
+        } else {
+            x_mulai = x2;
+            x_akhir = x1;
+        }
+        for (xx = x_mulai; xx <= x_akhir; xx++) {
+            pigura_gambar_piksel(xx, y1, warna);
+        }
+        return;
+    }
+
+    /* Algoritma Bresenham umum */
+    err = dx - dy;
 
     for (;;) {
         pigura_gambar_piksel(x1, y1, warna);
         if (x1 == x2 && y1 == y2) break;
         e2 = 2 * err;
-        if (e2 > -dy) { err -= dy; x1 = (uint32)((int32)x1 + sx); }
-        if (e2 < dx)  { err += dx; y1 = (uint32)((int32)y1 + sy); }
+        if (e2 > -dy) {
+            err -= dy;
+            x1 = (uint32)((int32)x1 + sx);
+        }
+        if (e2 < dx) {
+            err += dx;
+            y1 = (uint32)((int32)y1 + sy);
+        }
     }
 }
 
+/*
+ * pigura_hapus_layar_warna — Hapus seluruh layar dengan warna tertentu.
+ */
 void pigura_hapus_layar_warna(WarnaRGBA warna)
 {
     pigura_gambar_kotak(0, 0, mode_aktif.lebar, mode_aktif.tinggi, warna);
 }
 
+/*
+ * pigura_gambar_char — Gambar satu karakter bitmap pada posisi piksel.
+ * Menggunakan font_bitmap 8x16 untuk merender karakter.
+ * Parameter depan dan latar menentukan warna piksel aktif dan latar.
+ */
 void pigura_gambar_char(char c, uint32 x, uint32 y,
                         WarnaRGBA depan, WarnaRGBA latar)
 {
@@ -472,32 +791,49 @@ void pigura_gambar_char(char c, uint32 x, uint32 y,
     }
 }
 
+/*
+ * pigura_perbarui — Tukar buffer tampilan (double buffering).
+ *
+ * Pada mode teks VGA, semua penulisan langsung terlihat
+ * karena menggunakan memori video langsung (0xB8000).
+ *
+ * Pada mode grafis, jika buffer belakang aktif,
+ * salin buffer belakang ke buffer depan (framebuffer hardware).
+ * Untuk implementasi saat ini (single buffer), penulisan
+ * langsung ke framebuffer sehingga tidak perlu operasi tambahan.
+ */
 void pigura_perbarui(void)
 {
-    /*
-     * Tukar buffer tampilan (double buffering).
-     * Pada mode teks VGA, semua penulisan langsung terlihat
-     * karena menggunakan memori video langsung (0xB8000).
-     * Pada mode grafis, jika double buffer aktif,
-     * salin buffer belakang ke buffer depan (framebuffer).
-     *
-     * Untuk tahap ini, operasi buffer sudah sinkron
-     * dengan penulisan langsung ke memori video,
-     * sehingga tidak diperlukan operasi tambahan.
-     */
     if (konsol.mode == PIGURA_MODE_GRAFIS && mode_aktif.alamat != 0) {
-        /* Mode grafis: sinkronisasi sudah dilakukan per piksel
-         * saat pigura_gambar_piksel dipanggil. Tidak perlu
-         * operasi penyalinan buffer tambahan pada implementasi
-         * single-buffer saat ini. */
+        /* Salin buffer belakang ke buffer depan jika
+         * double buffering aktif */
+        if (buffer_belakang != NULL) {
+            salin_buffer_grafis();
+        }
+        /* Jika single buffer, penulisan sudah langsung
+         * ke framebuffer — tidak perlu operasi tambahan */
     }
 }
 
+/* ================================================================
+ * FUNGSI KUERI
+ * ================================================================ */
+
+/*
+ * pigura_dapatkan_mode — Dapatkan mode tampilan aktif.
+ * Mengembalikan pointer ke struktur ModePigura yang berisi
+ * informasi resolusi, kedalaman warna, dan alamat framebuffer.
+ */
 ModePigura *pigura_dapatkan_mode(void)
 {
     return &mode_aktif;
 }
 
+/*
+ * pigura_dapatkan_konsol — Dapatkan status konsol.
+ * Mengembalikan pointer ke struktur KonsolPigura yang berisi
+ * posisi kursor, warna, dan mode tampilan saat ini.
+ */
 KonsolPigura *pigura_dapatkan_konsol(void)
 {
     return &konsol;

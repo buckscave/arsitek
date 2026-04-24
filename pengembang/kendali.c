@@ -23,7 +23,7 @@
 /* ================================================================
  * DATABASE IC — TABEL IC YANG DIKENALI
  *
- * Setiap entri berisi:
+ * Setiap entri berisi data lengkap DataIC:
  *   vendor_id, perangkat_id  — ID PCI untuk identifikasi
  *   kelas, subkelas          — Kelas PCI untuk pencocokan
  *   nama_ic                  — Nama IC (mis. "RTL8139C+")
@@ -33,13 +33,16 @@
  *   tipe_perangkat           — Tipe perangkat yang menggunakan IC
  *   tipe_bus                 — Jenis bus koneksi
  *   clock_mhz                — Kecepatan clock IC
+ *   alamat_basis             — Alamat basis register IC
+ *   ukuran_register          — Ukuran ruang register IC
+ *   interupsi_default        — Nomor interupsi default
  *   parameter_maks[]         — Parameter nilai maksimum
  *   parameter_optimal[]      — Parameter nilai optimal/stabil
  *   jumlah_parameter         — Jumlah parameter yang digunakan
  * ================================================================ */
 
-static const DataIC tabel_ic[] = {
-    /* ---- IC Eternet ---- */
+static DataIC tabel_ic[] = {
+    /* ---- IC Eternet (10 entri) ---- */
     {
         0x10EC, 0x8139, 0x02, 0x00,
         "RTL8139C+", "Realtek",
@@ -73,7 +76,7 @@ static const DataIC tabel_ic[] = {
     {
         0x8086, 0x10D3, 0x02, 0x00,
         "I82574L", "Intel",
-        "Pengendali Eternet 1 Gigabit",
+        "Pengendali Eternet 1 Gigabit Server",
         IC_FUNGSI_ETERNET, PERANGKAT_JARINGAN, BUS_PCI,
         125, 0x0000, 0x0200, 18,
         {1000, 1000, 8192, 9000, 1000, 256, 8, 6},
@@ -93,7 +96,7 @@ static const DataIC tabel_ic[] = {
     {
         0x8086, 0x1502, 0x02, 0x00,
         "I82579V", "Intel",
-        "Pengendali Eternet 1 Gigabit",
+        "Pengendali Eternet 1 Gigabit Desktop",
         IC_FUNGSI_ETERNET, PERANGKAT_JARINGAN, BUS_PCI,
         125, 0x0000, 0x0200, 20,
         {1000, 1000, 8192, 9000, 1000, 256, 8, 6},
@@ -141,7 +144,7 @@ static const DataIC tabel_ic[] = {
         4
     },
 
-    /* ---- IC Storage AHCI ---- */
+    /* ---- IC Storage AHCI (4 entri) ---- */
     {
         0x8086, 0x2922, 0x01, 0x06,
         "ICH9 AHCI", "Intel",
@@ -183,7 +186,7 @@ static const DataIC tabel_ic[] = {
         4
     },
 
-    /* ---- IC Storage NVMe ---- */
+    /* ---- IC Storage NVMe (2 entri) ---- */
     {
         0x8086, 0xF1A5, 0x01, 0x08,
         "PCH NVMe", "Intel",
@@ -205,7 +208,7 @@ static const DataIC tabel_ic[] = {
         4
     },
 
-    /* ---- IC Storage IDE ---- */
+    /* ---- IC Storage IDE (2 entri) ---- */
     {
         0x8086, 0x7010, 0x01, 0x01,
         "PIIX3 IDE", "Intel",
@@ -227,7 +230,7 @@ static const DataIC tabel_ic[] = {
         4
     },
 
-    /* ---- IC USB UHCI ---- */
+    /* ---- IC USB (6 entri) ---- */
     {
         0x8086, 0x7020, 0x0C, 0x00,
         "PIIX3 UHCI", "Intel",
@@ -248,8 +251,6 @@ static const DataIC tabel_ic[] = {
         {2, 64, 12, 64, 0, 0, 0, 0},
         4
     },
-
-    /* ---- IC USB OHCI ---- */
     {
         0x10DE, 0x0C7C, 0x0C, 0x10,
         "MCP78 OHCI", "NVIDIA",
@@ -260,8 +261,6 @@ static const DataIC tabel_ic[] = {
         {2, 64, 12, 64, 0, 0, 0, 0},
         4
     },
-
-    /* ---- IC USB EHCI ---- */
     {
         0x8086, 0x24DD, 0x0C, 0x20,
         "ICH5 EHCI", "Intel",
@@ -282,8 +281,6 @@ static const DataIC tabel_ic[] = {
         {6, 64, 480, 512, 0, 0, 0, 0},
         4
     },
-
-    /* ---- IC USB xHCI ---- */
     {
         0x8086, 0x1E31, 0x0C, 0x30,
         "Panther Point xHCI", "Intel",
@@ -294,18 +291,8 @@ static const DataIC tabel_ic[] = {
         {8, 64, 5000, 512, 0, 0, 0, 0},
         4
     },
-    {
-        0x8086, 0x9CB1, 0x0C, 0x30,
-        "Wildcat Point xHCI", "Intel",
-        "Pengendali USB 3.0 xHCI (Wildcat Point)",
-        IC_FUNGSI_USB_XHCI, PERANGKAT_USB, BUS_PCI,
-        100, 0x0000, 0x8000, 11,
-        {16, 255, 5000, 1024, 0, 0, 0, 0},
-        {8, 64, 5000, 512, 0, 0, 0, 0},
-        4
-    },
 
-    /* ---- IC Tampilan VGA ---- */
+    /* ---- IC Tampilan (4 entri) ---- */
     {
         0x1234, 0x1111, 0x03, 0x00,
         "Bochs VBE", "Bochs",
@@ -347,7 +334,7 @@ static const DataIC tabel_ic[] = {
         4
     },
 
-    /* ---- IC Audio ---- */
+    /* ---- IC Audio (3 entri) ---- */
     {
         0x8086, 0x2415, 0x04, 0x01,
         "ICH2 AC97", "Intel",
@@ -368,8 +355,18 @@ static const DataIC tabel_ic[] = {
         {48000, 2, 16, 4, 0, 0, 0, 0},
         4
     },
+    {
+        0x10EC, 0x0269, 0x04, 0x03,
+        "ALC269 HDA", "Realtek",
+        "Kodek Audio High Definition",
+        IC_FUNGSI_AUDIO, PERANGKAT_LAIN, BUS_PCI,
+        24, 0x0000, 0x4000, 22,
+        {192000, 8, 32, 16, 0, 0, 0, 0},
+        {48000, 2, 16, 4, 0, 0, 0, 0},
+        4
+    },
 
-    /* ---- IC UART/Serial ---- */
+    /* ---- IC UART/Serial (1 entri) ---- */
     {
         0x8086, 0x2922, 0x07, 0x00,
         "16550A UART", "Intel",
@@ -381,7 +378,7 @@ static const DataIC tabel_ic[] = {
         4
     },
 
-    /* ---- IC DMA ---- */
+    /* ---- IC DMA (1 entri) ---- */
     {
         0x8086, 0x7010, 0x08, 0x01,
         "8237 DMA", "Intel",
@@ -393,7 +390,7 @@ static const DataIC tabel_ic[] = {
         2
     },
 
-    /* ---- IC PIC/PIT ---- */
+    /* ---- IC PIC/PIT (2 entri) ---- */
     {
         0x0000, 0x0000, 0x08, 0x00,
         "8259A PIC", "Intel",
@@ -415,7 +412,7 @@ static const DataIC tabel_ic[] = {
         1
     },
 
-    /* ---- IC RTC ---- */
+    /* ---- IC RTC (1 entri) ---- */
     {
         0x0000, 0x0000, 0x08, 0x00,
         "MC146818 RTC", "Motorola",
@@ -427,7 +424,7 @@ static const DataIC tabel_ic[] = {
         0
     },
 
-    /* ---- IC Bridge ---- */
+    /* ---- IC Bridge (2 entri) ---- */
     {
         0x8086, 0x29C0, 0x06, 0x00,
         "ICH9 Host Bridge", "Intel",
@@ -449,7 +446,7 @@ static const DataIC tabel_ic[] = {
         0
     },
 
-    /* ---- IC Bluetooth ---- */
+    /* ---- IC Bluetooth (1 entri) ---- */
     {
         0x8087, 0x07DA, 0x0D, 0x10,
         "BCM20702 Bluetooth", "Broadcom",
@@ -461,7 +458,7 @@ static const DataIC tabel_ic[] = {
         3
     },
 
-    /* ---- Entri akhir (penanda) ---- */
+    /* ---- Penanda akhir tabel ---- */
     {
         0xFFFF, 0xFFFF, 0xFF, 0xFF,
         "", "", "",
@@ -476,42 +473,45 @@ static const DataIC tabel_ic[] = {
 /* Jumlah entri dalam tabel IC (tidak termasuk penanda akhir) */
 #define TABEL_IC_JUMLAH (sizeof(tabel_ic) / sizeof(tabel_ic[0]) - 1)
 
-/* IC yang teridentifikasi untuk setiap perangkat */
+/* ================================================================
+ * DATA INTERNAL — IC yang sudah teridentifikasi per perangkat
+ * ================================================================ */
+
 static DataIC ic_teridentifikasi[PERANGKAT_MAKSIMUM];
 static int jumlah_ic_teridentifikasi = 0;
 
 /* ================================================================
- * FUNGSI IDENTIFIKASI IC
- * ================================================================ */
-
-/*
- * pengembang_kendali_identifikasi_ic — Identifikasi IC dari PCI IDs.
+ * pengembang_kendali_identifikasi_ic — Identifikasi IC dari PCI IDs
+ *
  * Mencari dalam tabel IC berdasarkan vendor_id, perangkat_id,
- * kelas, dan subkelas. Jika ditemukan, salin data IC ke buffer.
+ * kelas, dan subkelas. Mengembalikan pointer ke entri DataIC
+ * yang paling cocok.
+ *
+ * Prioritas pencocokan:
+ *   1. vendor_id + perangkat_id + kelas + subkelas (skor 5)
+ *   2. vendor_id + perangkat_id + kelas (skor 4)
+ *   3. vendor_id + perangkat_id (skor 3)
+ *   4. kelas + subkelas (skor 2)
+ *   5. kelas saja (skor 1)
  *
  * Parameter:
  *   vendor_id    — Vendor ID PCI
  *   perangkat_id — Device ID PCI
  *   kelas        — Kelas PCI
  *   subkelas     — Sub-kelas PCI
- *   hasil        — Buffer untuk menampung hasil
- * Mengembalikan STATUS_OK jika IC dikenali, STATUS_TIDAK_DIKENAL jika tidak.
- */
-int pengembang_kendali_identifikasi_ic(uint16 vendor_id, uint16 perangkat_id,
-                                        uint8 kelas, uint8 subkelas,
-                                        DataIC *hasil)
+ *
+ * Mengembalikan:
+ *   Pointer ke DataIC jika dikenali, NULL jika tidak
+ * ================================================================ */
+DataIC *pengembang_kendali_identifikasi_ic(uint16 vendor_id,
+                                            uint16 perangkat_id,
+                                            uint8 kelas,
+                                            uint8 subkelas)
 {
     int i;
     int cocok_terbaik = -1;
     int skor_terbaik = 0;
 
-    if (hasil == NULL) return STATUS_PARAMETAR_SALAH;
-
-    /* Cari entri yang paling cocok — prioritas:
-     * 1. vendor_id + perangkat_id + kelas + subkelas (skor 4)
-     * 2. vendor_id + perangkat_id (skor 3)
-     * 3. kelas + subkelas (skor 2)
-     * 4. kelas saja (skor 1) */
     for (i = 0; i < (int)TABEL_IC_JUMLAH; i++) {
         int skor = 0;
 
@@ -533,115 +533,117 @@ int pengembang_kendali_identifikasi_ic(uint16 vendor_id, uint16 perangkat_id,
     }
 
     if (cocok_terbaik >= 0 && skor_terbaik >= 2) {
-        /* Salin data IC ke hasil */
-        *hasil = tabel_ic[cocok_terbaik];
+        /* Simpan ke tabel IC teridentifikasi */
+        if (jumlah_ic_teridentifikasi < PERANGKAT_MAKSIMUM) {
+            DataIC *hasil;
+            hasil = &ic_teridentifikasi[jumlah_ic_teridentifikasi];
+            *hasil = tabel_ic[cocok_terbaik];
+            hasil->vendor_id = vendor_id;
+            hasil->perangkat_id = perangkat_id;
+            hasil->kelas = kelas;
+            hasil->subkelas = subkelas;
+            jumlah_ic_teridentifikasi++;
+            return hasil;
+        }
+        /* Tabel penuh — kembalikan langsung dari tabel statis */
+        return (DataIC *)&tabel_ic[cocok_terbaik];
+    }
 
-        /* Perbarui IDs dari perangkat aktual jika berbeda */
+    /* IC tidak dikenali — buat entri generik berdasarkan kelas */
+    if (jumlah_ic_teridentifikasi < PERANGKAT_MAKSIMUM) {
+        DataIC *hasil;
+        hasil = &ic_teridentifikasi[jumlah_ic_teridentifikasi];
+        isi_memori(hasil, 0, sizeof(DataIC));
         hasil->vendor_id = vendor_id;
         hasil->perangkat_id = perangkat_id;
         hasil->kelas = kelas;
         hasil->subkelas = subkelas;
-
-        return STATUS_OK;
-    }
-
-    /* IC tidak dikenali — buat entri generik berdasarkan kelas */
-    isi_memori(hasil, 0, sizeof(DataIC));
-    hasil->vendor_id = vendor_id;
-    hasil->perangkat_id = perangkat_id;
-    hasil->kelas = kelas;
-    hasil->subkelas = subkelas;
-    salin_string(hasil->nama_ic, "Generik");
-    salin_string(hasil->fabrikkan, "Tidak Dikenal");
-    hasil->tipe_fungsi = IC_FUNGSI_LAIN;
-    hasil->tipe_perangkat = PERANGKAT_LAIN;
-    hasil->tipe_bus = BUS_PCI;
-
-    /* Tentukan fungsi berdasarkan kelas PCI */
-    switch (kelas) {
-    case 0x01:
-        hasil->tipe_fungsi = (subkelas == 0x06) ? IC_FUNGSI_STORAGE_AHCI :
-                             (subkelas == 0x08) ? IC_FUNGSI_STORAGE_NVME :
-                             IC_FUNGSI_STORAGE_IDE;
-        hasil->tipe_perangkat = PERANGKAT_PENYIMPANAN;
-        salin_string(hasil->fungsi, "Pengendali Penyimpanan Generik");
-        break;
-    case 0x02:
-        hasil->tipe_fungsi = IC_FUNGSI_ETERNET;
-        hasil->tipe_perangkat = PERANGKAT_JARINGAN;
-        salin_string(hasil->fungsi, "Pengendali Jaringan Generik");
-        break;
-    case 0x03:
-        hasil->tipe_fungsi = IC_FUNGSI_TAMPILAN_VGA;
-        hasil->tipe_perangkat = PERANGKAT_LAYAR;
-        salin_string(hasil->fungsi, "Pengendali Tampilan Generik");
-        break;
-    case 0x04:
-        hasil->tipe_fungsi = IC_FUNGSI_AUDIO;
+        salin_string(hasil->nama_ic, "Generik");
+        salin_string(hasil->fabrikkan, "Tidak Dikenal");
+        hasil->tipe_fungsi = IC_FUNGSI_LAIN;
         hasil->tipe_perangkat = PERANGKAT_LAIN;
-        salin_string(hasil->fungsi, "Pengendali Audio Generik");
-        break;
-    case 0x06:
-        hasil->tipe_fungsi = IC_FUNGSI_BRIDGE;
-        hasil->tipe_perangkat = PERANGKAT_PCI;
-        salin_string(hasil->fungsi, "Jembatan Bus Generik");
-        break;
-    case 0x07:
-        hasil->tipe_fungsi = IC_FUNGSI_UART;
-        hasil->tipe_perangkat = PERANGKAT_SERIAL;
-        salin_string(hasil->fungsi, "Pengendali Serial Generik");
-        break;
-    case 0x0C:
-        if (subkelas == 0x03) {
-            hasil->tipe_fungsi = IC_FUNGSI_USB_XHCI;
-            hasil->tipe_perangkat = PERANGKAT_USB;
-            salin_string(hasil->fungsi, "Pengendali USB Generik");
+        hasil->tipe_bus = BUS_PCI;
+
+        switch (kelas) {
+        case 0x01:
+            hasil->tipe_fungsi = (subkelas == 0x06) ? IC_FUNGSI_STORAGE_AHCI :
+                                 (subkelas == 0x08) ? IC_FUNGSI_STORAGE_NVME :
+                                 IC_FUNGSI_STORAGE_IDE;
+            hasil->tipe_perangkat = PERANGKAT_PENYIMPANAN;
+            salin_string(hasil->fungsi, "Pengendali Penyimpanan Generik");
+            break;
+        case 0x02:
+            hasil->tipe_fungsi = IC_FUNGSI_ETERNET;
+            hasil->tipe_perangkat = PERANGKAT_JARINGAN;
+            salin_string(hasil->fungsi, "Pengendali Jaringan Generik");
+            break;
+        case 0x03:
+            hasil->tipe_fungsi = IC_FUNGSI_TAMPILAN_VGA;
+            hasil->tipe_perangkat = PERANGKAT_LAYAR;
+            salin_string(hasil->fungsi, "Pengendali Tampilan Generik");
+            break;
+        case 0x04:
+            hasil->tipe_fungsi = IC_FUNGSI_AUDIO;
+            hasil->tipe_perangkat = PERANGKAT_LAIN;
+            salin_string(hasil->fungsi, "Pengendali Audio Generik");
+            break;
+        case 0x06:
+            hasil->tipe_fungsi = IC_FUNGSI_BRIDGE;
+            hasil->tipe_perangkat = PERANGKAT_PCI;
+            salin_string(hasil->fungsi, "Jembatan Bus Generik");
+            break;
+        case 0x07:
+            hasil->tipe_fungsi = IC_FUNGSI_UART;
+            hasil->tipe_perangkat = PERANGKAT_SERIAL;
+            salin_string(hasil->fungsi, "Pengendali Serial Generik");
+            break;
+        case 0x0C:
+            if (subkelas == 0x03) {
+                hasil->tipe_fungsi = IC_FUNGSI_USB_XHCI;
+                hasil->tipe_perangkat = PERANGKAT_USB;
+                salin_string(hasil->fungsi, "Pengendali USB Generik");
+            }
+            break;
+        default:
+            salin_string(hasil->fungsi, "Perangkat Generik");
+            break;
         }
-        break;
-    case 0x0D:
-        hasil->tipe_fungsi = IC_FUNGSI_BLUETOOTH;
-        hasil->tipe_perangkat = PERANGKAT_LAIN;
-        salin_string(hasil->fungsi, "Pengendali Nirkabel Generik");
-        break;
-    default:
-        salin_string(hasil->fungsi, "Perangkat Generik");
-        break;
+
+        jumlah_ic_teridentifikasi++;
+        return hasil;
     }
 
-    return STATUS_TIDAK_DIKENAL;
+    return NULL;
 }
 
 /* ================================================================
- * FUNGSI INISIALISASI IC
- * ================================================================ */
-
-/*
- * pengembang_kendali_inisialisasi_ic — Inisialisasi driver untuk IC.
+ * pengembang_kendali_inisialisasi_ic — Inisialisasi driver untuk IC
+ *
  * Mengkonfigurasi perangkat berdasarkan data IC dan mengatur
- * parameter ke nilai optimal (stabil).
+ * parameter ke nilai optimal (stabil). Menyimpan nomor
+ * interupsi default ke data perangkat.
  *
  * Parameter:
- *   ic        — pointer ke struktur DataIC yang sudah diidentifikasi
- *   perangkat — pointer ke struktur DataPerangkat
- * Mengembalikan STATUS_OK jika berhasil.
- */
+ *   ic        — pointer ke DataIC yang sudah diidentifikasi
+ *   perangkat — pointer ke DataPerangkat
+ *
+ * Mengembalikan:
+ *   STATUS_OK jika berhasil,
+ *   STATUS_PARAMETAR_SALAH jika parameter NULL
+ * ================================================================ */
 int pengembang_kendali_inisialisasi_ic(DataIC *ic, DataPerangkat *perangkat)
 {
-    if (ic == NULL || perangkat == NULL) return STATUS_PARAMETAR_SALAH;
-
-    /* Simpan data IC ke data_khusus perangkat */
-    if (jumlah_ic_teridentifikasi < PERANGKAT_MAKSIMUM) {
-        ic_teridentifikasi[jumlah_ic_teridentifikasi] = *ic;
-        jumlah_ic_teridentifikasi++;
+    if (ic == NULL || perangkat == NULL) {
+        return STATUS_PARAMETAR_SALAH;
     }
 
-    /* Atur parameter perangkat ke nilai optimal IC */
+    /* Atur interupsi default dari IC ke perangkat */
     perangkat->interupsi = ic->interupsi_default;
 
-    /* Catat identifikasi IC ke notulen */
+    /* Catat inisialisasi ke notulen */
     {
         char pesan[128];
-        salin_string(pesan, "Kendali: IC teridentifikasi — ");
+        salin_string(pesan, "Kendali: IC diinisialisasi — ");
         salin_string(pesan + panjang_string(pesan), ic->nama_ic);
         salin_string(pesan + panjang_string(pesan), " (");
         salin_string(pesan + panjang_string(pesan), ic->fabrikkan);
@@ -652,43 +654,38 @@ int pengembang_kendali_inisialisasi_ic(DataIC *ic, DataPerangkat *perangkat)
     /* Inisialisasi berdasarkan tipe fungsi IC */
     switch (ic->tipe_fungsi) {
     case IC_FUNGSI_ETERNET:
-        /* Inisialisasi IC jaringan — set kecepatan optimal */
-        notulen_catat(NOTULEN_INFO, "Kendali: Inisialisasi pengendali jaringan generik");
+        notulen_catat(NOTULEN_INFO,
+            "Kendali: Inisialisasi pengendali jaringan generik");
         break;
-
     case IC_FUNGSI_STORAGE_AHCI:
     case IC_FUNGSI_STORAGE_NVME:
     case IC_FUNGSI_STORAGE_IDE:
-        /* Inisialisasi IC penyimpanan — set queue depth optimal */
-        notulen_catat(NOTULEN_INFO, "Kendali: Inisialisasi pengendali penyimpanan generik");
+        notulen_catat(NOTULEN_INFO,
+            "Kendali: Inisialisasi pengendali penyimpanan generik");
         break;
-
     case IC_FUNGSI_USB_UHCI:
     case IC_FUNGSI_USB_OHCI:
     case IC_FUNGSI_USB_EHCI:
     case IC_FUNGSI_USB_XHCI:
-        /* Inisialisasi IC USB — set port count optimal */
-        notulen_catat(NOTULEN_INFO, "Kendali: Inisialisasi pengendali USB generik");
+        notulen_catat(NOTULEN_INFO,
+            "Kendali: Inisialisasi pengendali USB generik");
         break;
-
     case IC_FUNGSI_TAMPILAN_VGA:
     case IC_FUNGSI_TAMPILAN_GPU:
-        /* Inisialisasi IC tampilan — set resolusi optimal */
-        notulen_catat(NOTULEN_INFO, "Kendali: Inisialisasi pengendali tampilan generik");
+        notulen_catat(NOTULEN_INFO,
+            "Kendali: Inisialisasi pengendali tampilan generik");
         break;
-
     case IC_FUNGSI_AUDIO:
-        /* Inisialisasi IC audio — set sample rate optimal */
-        notulen_catat(NOTULEN_INFO, "Kendali: Inisialisasi pengendali audio generik");
+        notulen_catat(NOTULEN_INFO,
+            "Kendali: Inisialisasi pengendali audio generik");
         break;
-
     case IC_FUNGSI_UART:
-        /* Inisialisasi IC UART — set baud rate optimal */
-        notulen_catat(NOTULEN_INFO, "Kendali: Inisialisasi pengendali serial generik");
+        notulen_catat(NOTULEN_INFO,
+            "Kendali: Inisialisasi pengendali serial generik");
         break;
-
     default:
-        notulen_catat(NOTULEN_INFO, "Kendali: Inisialisasi pengendali generik");
+        notulen_catat(NOTULEN_INFO,
+            "Kendali: Inisialisasi pengendali generik");
         break;
     }
 
@@ -696,160 +693,208 @@ int pengembang_kendali_inisialisasi_ic(DataIC *ic, DataPerangkat *perangkat)
 }
 
 /* ================================================================
- * FUNGSI AKSES REGISTER IC
- * ================================================================ */
-
-/*
- * pengembang_kendali_baca_register — Baca register IC.
+ * pengembang_kendali_baca_register — Baca register IC
+ *
  * Mengakses register IC melalui bus yang sesuai.
- * Untuk PCI: menggunakan memory-mapped I/O atau port I/O.
+ * Untuk offset < 0x40: gunakan PCI config space.
+ * Untuk offset >= 0x40: gunakan MMIO (alamat basis perangkat).
+ * Pada x86/x64: akses langsung via pointer MMIO.
+ * Pada ARM: akses MMIO juga.
  *
  * Parameter:
- *   perangkat — pointer ke struktur DataPerangkat
+ *   perangkat — pointer ke DataPerangkat
  *   offset    — offset register dari alamat basis
- * Mengembalikan nilai register 32-bit.
- */
-uint32 pengembang_kendali_baca_register(DataPerangkat *perangkat, uint32 offset)
+ *
+ * Mengembalikan:
+ *   Nilai register 32-bit, atau 0 jika gagal
+ * ================================================================ */
+uint32 pengembang_kendali_baca_register(DataPerangkat *perangkat,
+                                         uint32 offset)
 {
-    if (perangkat == NULL) return 0;
+    if (perangkat == NULL) {
+        return 0;
+    }
 
-    /* Akses melalui PCI config space atau MMIO */
     switch (perangkat->tipe_bus) {
     case BUS_PCI:
 #if defined(ARSITEK_X86) || defined(ARSITEK_X64)
         {
-            uint8 bus = (uint8)((perangkat->port >> 16) & 0xFF);
-            uint8 dev = (uint8)((perangkat->port >> 8) & 0xFF);
-            uint8 fn  = (uint8)(perangkat->port & 0xFF);
+            uint8 bus, dev, fn;
 
-            /* Jika offset < 0x40, gunakan PCI config space */
+            bus = (uint8)((perangkat->port >> 16) & 0xFF);
+            dev = (uint8)((perangkat->port >> 8) & 0xFF);
+            fn  = (uint8)(perangkat->port & 0xFF);
+
+            /* PCI config space untuk offset rendah */
             if (offset < 0x40) {
-                return peninjau_pci_baca(bus, dev, fn, (uint8)offset);
-            }
-            /* Jika offset >= 0x40, gunakan MMIO (BAR0) */
-            if (perangkat->alamat != 0) {
-                volatile uint32 *mmio;
-                mmio = (volatile uint32 *)(ukuran_ptr)(perangkat->alamat + offset);
-                return *mmio;
+                return penyedia_jalur_baca_pci(perangkat,
+                                                (uint8)offset);
             }
         }
 #endif
+
+        /* MMIO untuk offset tinggi (semua arsitektur) */
+        if (perangkat->alamat != 0) {
+            volatile uint32 *mmio;
+            mmio = (volatile uint32 *)(ukuran_ptr)
+                   (perangkat->alamat + offset);
+            return *mmio;
+        }
         break;
 
     default:
+        /* Bus lain: akses MMIO jika alamat tersedia */
+        if (perangkat->alamat != 0) {
+            volatile uint32 *mmio;
+            mmio = (volatile uint32 *)(ukuran_ptr)
+                   (perangkat->alamat + offset);
+            return *mmio;
+        }
         break;
     }
 
     return 0;
 }
 
-/*
- * pengembang_kendali_tulis_register — Tulis register IC.
+/* ================================================================
+ * pengembang_kendali_tulis_register — Tulis register IC
+ *
  * Mengakses register IC melalui bus yang sesuai.
+ * Logika akses sama dengan baca_register.
  *
  * Parameter:
- *   perangkat — pointer ke struktur DataPerangkat
+ *   perangkat — pointer ke DataPerangkat
  *   offset    — offset register dari alamat basis
  *   nilai     — nilai 32-bit yang akan ditulis
- */
+ * ================================================================ */
 void pengembang_kendali_tulis_register(DataPerangkat *perangkat,
                                         uint32 offset, uint32 nilai)
 {
-    if (perangkat == NULL) return;
+    if (perangkat == NULL) {
+        return;
+    }
 
     switch (perangkat->tipe_bus) {
     case BUS_PCI:
 #if defined(ARSITEK_X86) || defined(ARSITEK_X64)
         {
-            uint8 bus = (uint8)((perangkat->port >> 16) & 0xFF);
-            uint8 dev = (uint8)((perangkat->port >> 8) & 0xFF);
-            uint8 fn  = (uint8)(perangkat->port & 0xFF);
-
+            /* PCI config space untuk offset rendah */
             if (offset < 0x40) {
-                peninjau_pci_tulis(bus, dev, fn, (uint8)offset, nilai);
-            } else if (perangkat->alamat != 0) {
-                volatile uint32 *mmio;
-                mmio = (volatile uint32 *)(ukuran_ptr)(perangkat->alamat + offset);
-                *mmio = nilai;
+                penyedia_jalur_tulis_pci(perangkat,
+                                          (uint8)offset, nilai);
+                return;
             }
         }
 #endif
+
+        /* MMIO untuk offset tinggi */
+        if (perangkat->alamat != 0) {
+            volatile uint32 *mmio;
+            mmio = (volatile uint32 *)(ukuran_ptr)
+                   (perangkat->alamat + offset);
+            *mmio = nilai;
+        }
         break;
 
     default:
+        /* Bus lain: akses MMIO jika alamat tersedia */
+        if (perangkat->alamat != 0) {
+            volatile uint32 *mmio;
+            mmio = (volatile uint32 *)(ukuran_ptr)
+                   (perangkat->alamat + offset);
+            *mmio = nilai;
+        }
         break;
     }
 }
 
 /* ================================================================
- * FUNGSI PENGATURAN PARAMETER
- * ================================================================ */
-
-/*
- * pengembang_kendali_set_parameter — Atur parameter IC.
+ * pengembang_kendali_set_parameter — Atur parameter IC
+ *
  * Parameter diuji pada nilai maksimum terlebih dahulu,
- * kemudian diset ke nilai optimal (stabil).
+ * kemudian diset ke nilai optimal (stabil). Parameter
+ * optimal disalin dari DataIC ke register perangkat.
  *
  * Parameter:
- *   ic           — pointer ke DataIC
- *   nomor_param  — nomor parameter (0-7)
- *   nilai        — nilai parameter
- * Mengembalikan STATUS_OK jika berhasil.
- */
-int pengembang_kendali_set_parameter(DataIC *ic, int nomor_param, uint32 nilai)
+ *   ic        — pointer ke DataIC
+ *   perangkat — pointer ke DataPerangkat
+ *
+ * Mengembalikan:
+ *   STATUS_OK jika berhasil,
+ *   STATUS_PARAMETAR_SALAH jika parameter NULL
+ * ================================================================ */
+int pengembang_kendali_set_parameter(DataIC *ic, DataPerangkat *perangkat)
 {
-    if (ic == NULL) return STATUS_PARAMETAR_SALAH;
-    if (nomor_param < 0 || nomor_param >= 8) return STATUS_PARAMETAR_SALAH;
-    if (nomor_param >= ic->jumlah_parameter) return STATUS_PARAMETAR_SALAH;
+    int i;
 
-    /* Uji: apakah nilai melebihi maksimum? */
-    if (nilai > ic->parameter_maks[nomor_param]) {
-        /* Nilai melebihi batas — gunakan nilai optimal */
-        nilai = ic->parameter_optimal[nomor_param];
+    if (ic == NULL || perangkat == NULL) {
+        return STATUS_PARAMETAR_SALAH;
     }
 
-    /* Catat pengaturan parameter */
-    {
-        char pesan[96];
-        salin_string(pesan, "Kendali: Parameter IC ");
-        konversi_uint_ke_string((uint32)nomor_param,
-                                pesan + panjang_string(pesan), 10);
-        salin_string(pesan + panjang_string(pesan), " = ");
-        konversi_uint_ke_string(nilai, pesan + panjang_string(pesan), 10);
-        notulen_catat(NOTULEN_INFO, pesan);
+    /* Terapkan parameter optimal ke perangkat */
+    for (i = 0; i < ic->jumlah_parameter && i < 8; i++) {
+        uint32 nilai_optimal;
+
+        nilai_optimal = ic->parameter_optimal[i];
+
+        /* Catat pengaturan parameter ke notulen */
+        {
+            char pesan[96];
+            salin_string(pesan, "Kendali: Parameter IC ");
+            konversi_uint_ke_string((uint32)i,
+                                    pesan + panjang_string(pesan), 10);
+            salin_string(pesan + panjang_string(pesan), " = ");
+            konversi_uint_ke_string(nilai_optimal,
+                                    pesan + panjang_string(pesan), 10);
+            salin_string(pesan + panjang_string(pesan), " (optimal)");
+            notulen_catat(NOTULEN_INFO, pesan);
+        }
+
+        /* Tulis parameter ke register IC (offset 0x80 + i*4) */
+        pengembang_kendali_tulis_register(perangkat,
+                                           0x80 + (uint32)i * 4,
+                                           nilai_optimal);
     }
 
     return STATUS_OK;
 }
 
 /* ================================================================
- * FUNGSI VERIFIKASI IC
- * ================================================================ */
-
-/*
- * pengembang_kendali_verifikasi_ic — Verifikasi IC merespons.
+ * pengembang_kendali_verifikasi_ic — Verifikasi IC merespons
+ *
  * Membaca register identifikasi IC dan membandingkan
- * dengan nilai yang diharapkan.
+ * dengan nilai yang diharapkan dari DataIC.
  *
  * Parameter:
- *   perangkat — pointer ke struktur DataPerangkat
- *   ic        — pointer ke struktur DataIC
- * Mengembalikan BENAR jika IC merespons dengan benar.
- */
-int pengembang_kendali_verifikasi_ic(DataPerangkat *perangkat, DataIC *ic)
+ *   ic        — pointer ke DataIC
+ *   perangkat — pointer ke DataPerangkat
+ *
+ * Mengembalikan:
+ *   BENAR jika IC merespons dengan benar,
+ *   SALAH jika tidak
+ * ================================================================ */
+logika pengembang_kendali_verifikasi_ic(DataIC *ic,
+                                         DataPerangkat *perangkat)
 {
     uint32 id_dibaca;
+    uint16 vendor_dibaca;
+    uint16 perangkat_dibaca;
 
-    if (perangkat == NULL || ic == NULL) return SALAH;
-
-    /* Baca register ID PCI */
-    id_dibaca = pengembang_kendali_baca_register(perangkat, 0x00);
-
-    /* Bandingkan vendor ID dan device ID */
-    if ((uint16)(id_dibaca & 0xFFFF) != ic->vendor_id) {
+    if (ic == NULL || perangkat == NULL) {
         return SALAH;
     }
-    if ((uint16)((id_dibaca >> 16) & 0xFFFF) != ic->perangkat_id) {
+
+    /* Baca register ID PCI (offset 0x00) */
+    id_dibaca = pengembang_kendali_baca_register(perangkat, 0x00);
+
+    vendor_dibaca = (uint16)(id_dibaca & 0xFFFF);
+    perangkat_dibaca = (uint16)((id_dibaca >> 16) & 0xFFFF);
+
+    /* Bandingkan dengan data IC */
+    if (vendor_dibaca != ic->vendor_id) {
+        return SALAH;
+    }
+    if (perangkat_dibaca != ic->perangkat_id) {
         return SALAH;
     }
 
@@ -857,45 +902,59 @@ int pengembang_kendali_verifikasi_ic(DataPerangkat *perangkat, DataIC *ic)
 }
 
 /* ================================================================
- * FUNGSI RESET IC
- * ================================================================ */
-
-/*
- * pengembang_kendali_reset_ic — Reset IC ke keadaan awal.
- * Mengirim perintah reset melalui register yang sesuai.
+ * pengembang_kendali_reset_ic — Reset IC ke kondisi awal
+ *
+ * Mengirim perintah reset melalui register perintah PCI.
+ * Menonaktifkan perangkat sementara, lalu mengaktifkan
+ * kembali dengan pengaturan yang sama.
  *
  * Parameter:
- *   perangkat — pointer ke struktur DataPerangkat
- *   ic        — pointer ke struktur DataIC
- * Mengembalikan STATUS_OK jika berhasil.
- */
-int pengembang_kendali_reset_ic(DataPerangkat *perangkat, DataIC *ic)
+ *   ic        — pointer ke DataIC
+ *   perangkat — pointer ke DataPerangkat
+ *
+ * Mengembalikan:
+ *   STATUS_OK jika berhasil,
+ *   STATUS_PARAMETAR_SALAH jika parameter NULL
+ * ================================================================ */
+int pengembang_kendali_reset_ic(DataIC *ic, DataPerangkat *perangkat)
 {
-    if (perangkat == NULL || ic == NULL) return STATUS_PARAMETAR_SALAH;
+    if (ic == NULL || perangkat == NULL) {
+        return STATUS_PARAMETAR_SALAH;
+    }
 
-    /* Reset umum: tulis 1 ke bit reset register perintah PCI */
     switch (perangkat->tipe_bus) {
     case BUS_PCI:
 #if defined(ARSITEK_X86) || defined(ARSITEK_X64)
         {
-            uint8 bus = (uint8)((perangkat->port >> 16) & 0xFF);
-            uint8 dev = (uint8)((perangkat->port >> 8) & 0xFF);
-            uint8 fn  = (uint8)(perangkat->port & 0xFF);
+            uint8 bus, dev, fn;
             uint32 perintah;
 
-            /* Baca register perintah, set bit reset (jika ada) */
-            perintah = peninjau_pci_baca(bus, dev, fn, PCI_OFFSET_PERINTAH);
+            bus = (uint8)((perangkat->port >> 16) & 0xFF);
+            dev = (uint8)((perangkat->port >> 8) & 0xFF);
+            fn  = (uint8)(perangkat->port & 0xFF);
 
-            /* Nonaktifkan dulu, lalu aktifkan kembali */
-            peninjau_pci_tulis(bus, dev, fn, PCI_OFFSET_PERINTAH, 0x0000);
+            /* Baca register perintah saat ini */
+            perintah = peninjau_pci_baca(bus, dev, fn,
+                                          PCI_OFFSET_PERINTAH);
+
+            /* Nonaktifkan perangkat sementara */
+            peninjau_pci_tulis(bus, dev, fn,
+                               PCI_OFFSET_PERINTAH, 0x0000);
             tunda_io();
             tunda_io();
-            peninjau_pci_tulis(bus, dev, fn, PCI_OFFSET_PERINTAH, perintah);
+
+            /* Aktifkan kembali dengan perintah sebelumnya */
+            peninjau_pci_tulis(bus, dev, fn,
+                               PCI_OFFSET_PERINTAH, perintah);
         }
 #endif
         break;
 
     default:
+        /* Untuk bus non-PCI, tulis ke register reset MMIO */
+        if (perangkat->alamat != 0) {
+            pengembang_kendali_tulis_register(perangkat, 0x00, 0x00000001);
+        }
         break;
     }
 
@@ -905,56 +964,206 @@ int pengembang_kendali_reset_ic(DataPerangkat *perangkat, DataIC *ic)
 }
 
 /* ================================================================
- * FUNGSI DIAGNOSTIK IC
- * ================================================================ */
-
-/*
- * pengembang_kendali_diagnostik — Jalankan diagnostik pada IC.
+ * pengembang_kendali_diagnostik — Jalankan diagnostik pada IC
+ *
  * Memverifikasi bahwa IC dapat diakses dan berfungsi
- * dengan parameter optimal.
+ * dengan parameter optimal. Memeriksa register status
+ * untuk mendeteksi kesalahan.
  *
  * Parameter:
- *   perangkat — pointer ke struktur DataPerangkat
- *   ic        — pointer ke struktur DataIC
- * Mengembalikan STATUS_OK jika diagnostik lulus.
- */
-int pengembang_kendali_diagnostik(DataPerangkat *perangkat, DataIC *ic)
+ *   ic        — pointer ke DataIC
+ *   perangkat — pointer ke DataPerangkat
+ *
+ * Mengembalikan:
+ *   STATUS_OK jika diagnostik lulus,
+ *   STATUS_GAGAL jika ditemukan masalah serius
+ * ================================================================ */
+int pengembang_kendali_diagnostik(DataIC *ic, DataPerangkat *perangkat)
 {
-    if (perangkat == NULL || ic == NULL) return STATUS_PARAMETAR_SALAH;
+    uint32 status;
+
+    if (ic == NULL || perangkat == NULL) {
+        return STATUS_PARAMETAR_SALAH;
+    }
 
     /* 1. Verifikasi IC merespons */
-    if (!pengembang_kendali_verifikasi_ic(perangkat, ic)) {
-        notulen_catat(NOTULEN_KESALAHAN, "Kendali: Diagnostik gagal — IC tidak merespons");
+    if (!pengembang_kendali_verifikasi_ic(ic, perangkat)) {
+        notulen_catat(NOTULEN_KESALAHAN,
+            "Kendali: Diagnostik gagal — IC tidak merespons");
         return STATUS_GAGAL;
     }
 
-    /* 2. Cek status register (offset 0x06) */
-    {
-        uint32 status;
-        status = pengembang_kendali_baca_register(perangkat, 0x06);
+    /* 2. Baca dan periksa register status (offset 0x06) */
+    status = pengembang_kendali_baca_register(perangkat, 0x06);
 
-        /* Bit 15: Parity Error — harus 0 */
-        if (status & 0x8000) {
-            notulen_catat(NOTULEN_PERINGATAN, "Kendali: Diagnostik — parity error terdeteksi");
-        }
-
-        /* Bit 14: Signaled System Error — harus 0 */
-        if (status & 0x4000) {
-            notulen_catat(NOTULEN_PERINGATAN, "Kendali: Diagnostik — system error terdeteksi");
-        }
-
-        /* Bit 13: Received Master Abort */
-        if (status & 0x2000) {
-            notulen_catat(NOTULEN_PERINGATAN, "Kendali: Diagnostik — master abort terdeteksi");
-        }
-
-        /* Bit 12: Received Target Abort */
-        if (status & 0x1000) {
-            notulen_catat(NOTULEN_PERINGATAN, "Kendali: Diagnostik — target abort terdeteksi");
-        }
+    /* Bit 15: Parity Error */
+    if (status & 0x8000) {
+        notulen_catat(NOTULEN_PERINGATAN,
+            "Kendali: Diagnostik — parity error terdeteksi");
     }
 
-    notulen_catat(NOTULEN_INFO, "Kendali: Diagnostik lulus");
+    /* Bit 14: Signaled System Error */
+    if (status & 0x4000) {
+        notulen_catat(NOTULEN_PERINGATAN,
+            "Kendali: Diagnostik — system error terdeteksi");
+    }
+
+    /* Bit 13: Received Master Abort */
+    if (status & 0x2000) {
+        notulen_catat(NOTULEN_PERINGATAN,
+            "Kendali: Diagnostik — master abort terdeteksi");
+    }
+
+    /* Bit 12: Received Target Abort */
+    if (status & 0x1000) {
+        notulen_catat(NOTULEN_PERINGATAN,
+            "Kendali: Diagnostik — target abort terdeteksi");
+    }
+
+    notulen_catat(NOTULEN_INFO,
+        "Kendali: Diagnostik IC lulus");
 
     return STATUS_OK;
+}
+
+/* ================================================================
+ * FUNGSI IC DARI ARSITEK.H
+ *
+ * Fungsi-fungsi berikut dideklarasikan dalam arsitek.h dan
+ * diimplementasikan di sini karena berhubungan erat dengan
+ * database IC dan mekanisme identifikasi.
+ * ================================================================ */
+
+/*
+ * ic_identifikasi — Identifikasi IC dari PCI IDs
+ *
+ * Fungsi publik yang dipanggil oleh komponen kernel lain
+ * untuk mengidentifikasi IC. Merupakan pembungkus atas
+ * pengembang_kendali_identifikasi_ic.
+ *
+ * Parameter:
+ *   vendor_id    — Vendor ID PCI
+ *   perangkat_id — Device ID PCI
+ *   kelas        — Kelas PCI
+ *   subkelas     — Sub-kelas PCI
+ *
+ * Mengembalikan:
+ *   Pointer ke DataIC jika dikenali, NULL jika tidak
+ */
+DataIC *ic_identifikasi(uint16 vendor_id, uint16 perangkat_id,
+                         uint8 kelas, uint8 subkelas)
+{
+    return pengembang_kendali_identifikasi_ic(vendor_id,
+                                               perangkat_id,
+                                               kelas, subkelas);
+}
+
+/*
+ * ic_nama_fungsi — Dapatkan nama fungsi IC
+ *
+ * Mengkonversi TipeFungsiIC ke string nama yang dapat dibaca.
+ *
+ * Parameter:
+ *   tipe — TipeFungsiIC yang akan dikonversi
+ *
+ * Mengembalikan:
+ *   String nama fungsi IC dalam bahasa Indonesia
+ */
+const char *ic_nama_fungsi(TipeFungsiIC tipe)
+{
+    switch (tipe) {
+    case IC_FUNGSI_ETERNET:      return "Pengendali Eternet";
+    case IC_FUNGSI_WIFI:         return "Pengendali WiFi";
+    case IC_FUNGSI_STORAGE_IDE:  return "Pengendali IDE/PATA";
+    case IC_FUNGSI_STORAGE_AHCI: return "Pengendali SATA AHCI";
+    case IC_FUNGSI_STORAGE_NVME: return "Pengendali NVMe";
+    case IC_FUNGSI_USB_UHCI:     return "Pengendali USB UHCI";
+    case IC_FUNGSI_USB_OHCI:     return "Pengendali USB OHCI";
+    case IC_FUNGSI_USB_EHCI:     return "Pengendali USB EHCI";
+    case IC_FUNGSI_USB_XHCI:     return "Pengendali USB xHCI";
+    case IC_FUNGSI_TAMPILAN_VGA: return "Pengendali Tampilan VGA";
+    case IC_FUNGSI_TAMPILAN_GPU: return "Pengendali GPU";
+    case IC_FUNGSI_AUDIO:        return "Pengendali Audio";
+    case IC_FUNGSI_UART:         return "Pengendali UART/Serial";
+    case IC_FUNGSI_DMA:          return "Pengendali DMA";
+    case IC_FUNGSI_PIC:          return "Pengendali Interupsi";
+    case IC_FUNGSI_PIT:          return "Penghitung Interval";
+    case IC_FUNGSI_RTC:          return "Jam Waktu Nyata";
+    case IC_FUNGSI_BRIDGE:       return "Jembatan Bus";
+    case IC_FUNGSI_BLUETOOTH:    return "Pengendali Bluetooth";
+    case IC_FUNGSI_LAIN:         return "Fungsi Lainnya";
+    default:                     return "Tidak Dikenal";
+    }
+}
+
+/*
+ * ic_cocok_perangkat — Periksa apakah IC cocok untuk perangkat
+ *
+ * Membandingkan data IC dengan data perangkat untuk
+ * menentukan apakah driver IC ini dapat mengendalikan
+ * perangkat tersebut.
+ *
+ * Parameter:
+ *   ic        — pointer ke DataIC
+ *   perangkat — pointer ke DataPerangkat
+ *
+ * Mengembalikan:
+ *   BENAR jika IC cocok dengan perangkat,
+ *   SALAH jika tidak cocok atau parameter NULL
+ */
+int ic_cocok_perangkat(DataIC *ic, DataPerangkat *perangkat)
+{
+    if (ic == NULL || perangkat == NULL) {
+        return SALAH;
+    }
+
+    /* Cocokkan vendor ID dan perangkat ID */
+    if (ic->vendor_id != 0xFFFF &&
+        ic->vendor_id == perangkat->vendor_id &&
+        ic->perangkat_id == perangkat->perangkat_id) {
+        return BENAR;
+    }
+
+    /* Cocokkan kelas dan subkelas */
+    if (ic->kelas == perangkat->kelas &&
+        ic->subkelas == perangkat->subkelas) {
+        return BENAR;
+    }
+
+    /* Cocokkan kelas saja (driver generik per kelas) */
+    if (ic->kelas == perangkat->kelas) {
+        return BENAR;
+    }
+
+    return SALAH;
+}
+
+/*
+ * ic_isi_parameter_optimal — Isi parameter optimal IC ke perangkat
+ *
+ * Menyalin parameter optimal dari DataIC ke register perangkat.
+ * Parameter optimal adalah nilai yang sudah diuji dan terbukti
+ * stabil pada pengujian dengan nilai maksimum.
+ *
+ * Parameter:
+ *   ic        — pointer ke DataIC
+ *   perangkat — pointer ke DataPerangkat
+ */
+void ic_isi_parameter_optimal(DataIC *ic, DataPerangkat *perangkat)
+{
+    int i;
+
+    if (ic == NULL || perangkat == NULL) {
+        return;
+    }
+
+    /* Salin parameter optimal ke register perangkat */
+    for (i = 0; i < ic->jumlah_parameter && i < 8; i++) {
+        pengembang_kendali_tulis_register(perangkat,
+                                           0x80 + (uint32)i * 4,
+                                           ic->parameter_optimal[i]);
+    }
+
+    /* Atur interupsi default */
+    perangkat->interupsi = ic->interupsi_default;
 }

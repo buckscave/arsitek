@@ -10,6 +10,12 @@
  *
  * Untuk setiap pengendali yang ditemukan, mencoba membaca
  * informasi disk melalui register PCI BAR.
+ *
+ * CATATAN: Fungsi ini TIDAK lagi memanggil notulen_tambah()
+ * karena semua perangkat PCI (termasuk penyimpanan) sudah
+ * dicatat saat enumerasi PCI umum di pci.c. Pemanggilan
+ * notulen_tambah() sebelumnya menyebabkan entri ganda
+ * (double-entry) di notulen.
  */
 
 #include "../lampiran/arsitek.h"
@@ -99,7 +105,10 @@ int peninjau_cek_penyimpanan(DataPerangkat daftar[], int maks)
                                      MIN(sizeof(DataPenyimpanan), DATA_KHUSUS_PANJANG));
                     }
 
-                    notulen_tambah(&daftar[jumlah]);
+                    /* TIDAK memanggil notulen_tambah() di sini.
+                     * Perangkat penyimpanan PCI sudah dicatat
+                     * saat enumerasi PCI umum (pci.c). Menambahkan
+                     * lagi akan menyebabkan entri ganda di notulen. */
                     jumlah++;
                 }
             }

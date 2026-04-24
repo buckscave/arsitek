@@ -20,22 +20,11 @@
 #include "../../lampiran/mesin.h"
 
 /* ================================================================
- * FALLBACK DEFINISI ARM64
- *
- * Jika kompilasi dilakukan tanpa flag -DARSITEK_ARM64=1,
- * definisi SCTLR dari mesin.h tidak akan tersedia.
- * Berikan fallback agar kode tetap dapat dikompilasi.
- * ================================================================ */
-#ifndef SCTLR_M
-#define SCTLR_M     BIT(0)             /* MMU Enable */
-#define SCTLR_A     BIT(1)             /* Alignment Check */
-#define SCTLR_C     BIT(2)             /* Data Cache Enable */
-#define SCTLR_I     BIT(12)            /* Instruction Cache Enable */
-#define SCTLR_Z     BIT(11)            /* Branch Prediction */
-#endif
-
-/* ================================================================
  * KONSTANTA PAGING ARM64
+ *
+ * Konstanta SCTLR_M, SCTLR_A, SCTLR_C, SCTLR_I, dan SCTLR_Z
+ * sudah didefinisikan di mesin.h yang di-include di atas.
+ * Tidak perlu fallback #ifndef lagi.
  * ================================================================ */
 
 #define ENTRI_PER_TABEL         512

@@ -791,4 +791,34 @@ extern int pengembang_siap;
 /* Tanda apakah pigura sudah siap */
 extern int pigura_siap;
 
+/* --- Penyedia Alamat --- */
+ukuran_ptr penyedia_alamat_cari_bebas(ukuran_t jumlah_halaman, ukuran_ptr alamat_mulai);
+ukuran_ptr penyedia_alamat_alokasi_region(ukuran_t ukuran, uint32 nomor_perangkat, uint8 tipe_region);
+int         penyedia_alamat_bebaskan_region(ukuran_ptr alamat);
+ukuran_ptr penyedia_alamat_peta_perangkat(ukuran_ptr alamat_fisik, ukuran_t ukuran, uint32 nomor_perangkat, const char *nama);
+int         penyedia_alamat_daftar_mmio(DataPerangkat daftar[], int maks);
+
+/* --- Penyedia Jalur --- */
+int   penyedia_jalur_konfigurasi_pci(DataPerangkat *perangkat, logika aktifkan_io, logika aktifkan_mem, logika aktifkan_master);
+int   penyedia_jalur_konfigurasi_usb(DataPerangkat *perangkat, uint8 tipe_pengendali, int nomor_bus);
+int   penyedia_jalur_konfigurasi_i2c(int nomor_bus, uint32 kecepatan_khz, uint8 alamat_7bit);
+int   penyedia_jalur_konfigurasi_spi(int nomor_bus, uint32 kecepatan_khz, uint8 mode, uint8 bit_per_kata, logika cs_aktif_rendah);
+uint32 penyedia_jalur_baca_pci(DataPerangkat *perangkat, uint8 offset);
+int   penyedia_jalur_tulis_pci(DataPerangkat *perangkat, uint8 offset, uint32 nilai);
+int   penyedia_jalur_status_bus(DataPerangkat *perangkat, uint32 *status);
+
+/* --- Penyedia Sela (Interupsi) --- */
+int penyedia_sela_cari_bebas(void);
+int penyedia_sela_alokasi(DataPerangkat *perangkat, unsigned int nomor_interupsi);
+int penyedia_sela_bebaskan(uint8 nomor_irq);
+int penyedia_sela_konfigurasi(DataPerangkat *perangkat, uint8 nomor_irq, uint8 tipe_pemicu);
+int penyedia_sela_mask(uint8 nomor_irq);
+int penyedia_sela_unmask(uint8 nomor_irq);
+
+/* --- Penyedia Tipe Data --- */
+void   penyedia_tipedata_informasi(DataPerangkat *perangkat);
+int    penyedia_tipedata_uji_alignment(DataPerangkat *perangkat);
+int    penyedia_tipedata_konversi_lebar(uint64 nilai_sumber, uint8 lebar_sumber, logika bertanda, void *hasil);
+logika penyedia_tipedata_validasi_ukuran(DataPerangkat *perangkat);
+
 #endif /* ARSITEK_H */

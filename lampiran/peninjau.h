@@ -6,11 +6,16 @@
  * dan memverifikasi apakah perangkat berfungsi baik.
  *
  * Fungsi-fungsi Peninjau:
- *   cek_ram()       → "Ada berapa RAM? Apakah berfungsi?"
- *   cek_usb()       → "Ada USB di port berapa? Tipe apa?"
- *   cek_pci()       → "Ada kartu PCI apa saja?"
- *   cek_layar()     → "Layar terhubung? Resolusi berapa?"
- *   cek_papan_ketik()→ "Papan ketik terhubung?"
+ *   cek_cpu()        -> "Prosesor apa yang terpasang?"
+ *   cek_ram()        -> "Ada berapa RAM? Apakah berfungsi?"
+ *   cek_usb()        -> "Ada USB di port berapa? Tipe apa?"
+ *   cek_pci()        -> "Ada kartu PCI apa saja?"
+ *   cek_layar()      -> "Layar terhubung? Resolusi berapa?"
+ *   cek_papan_ketik()-> "Papan ketik terhubung?"
+ *   cek_tetikus()    -> "Tetikus terhubung?"
+ *   cek_penyimpanan()-> "Ada disk apa saja?"
+ *   cek_jaringan()   -> "Ada kartu jaringan?"
+ *   cek_dma()        -> "Pengendali DMA tersedia?"
  */
 
 #ifndef PENINJAU_H
@@ -28,6 +33,9 @@ int  peninjau_periksa_port(unsigned int nomor_port, DataPerangkat *hasil);
 
 /* === Pemeriksaan Perangkat Spesifik === */
 
+/* Periksa CPU yang terpasang */
+int  peninjau_cek_cpu(DataPerangkat *hasil);
+
 /* Periksa RAM yang terpasang */
 int  peninjau_cek_ram(DataPerangkat *hasil);
 
@@ -43,11 +51,17 @@ int  peninjau_cek_layar(DataPerangkat *hasil);
 /* Periksa papan ketik */
 int  peninjau_cek_papan_ketik(DataPerangkat *hasil);
 
-/* Periksa tetikan (mouse) */
-int  peninjau_cek_tetikan(DataPerangkat *hasil);
+/* Periksa tetikus (mouse) */
+int  peninjau_cek_tetikus(DataPerangkat *hasil);
 
 /* Periksa penyimpanan (HDD/SSD) */
 int  peninjau_cek_penyimpanan(DataPerangkat daftar[], int maks);
+
+/* Periksa jaringan (Eternet/WiFi) */
+int  peninjau_cek_jaringan(DataPerangkat daftar[], int maks);
+
+/* Periksa pengendali DMA */
+int  peninjau_cek_dma(DataPerangkat *hasil);
 
 /* Verifikasi apakah perangkat berfungsi dengan baik */
 KondisiPerangkat peninjau_verifikasi(DataPerangkat *perangkat);

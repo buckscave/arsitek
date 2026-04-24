@@ -43,7 +43,7 @@
 #if defined(ARSITEK_X86) || defined(ARSITEK_X64)
 /* IRQ 0 (timer), 2 (cascade), 13 (FPU) dicadangkan */
 #define IRQ_DICADANGKAN_COUNT 3
-static const uint8 irq_dicadangkan[IRQ_DICADANGKAN_COUNT] = { 0, 2, 13 };
+static const uint8 daftar_irq_dicadangkan[IRQ_DICADANGKAN_COUNT] = { 0, 2, 13 };
 #endif
 
 /* Jumlah maksimum perangkat yang dapat tercatat dalam tabel IRQ */
@@ -113,7 +113,7 @@ static void inisialisasi_sela(void)
 #if defined(ARSITEK_X86) || defined(ARSITEK_X64)
     /* Tandai IRQ yang dicadangkan sebagai terpakai */
     for (i = 0; i < IRQ_DICADANGKAN_COUNT; i++) {
-        uint8 irq = irq_dicadangkan[i];
+        uint8 irq = daftar_irq_dicadangkan[i];
         tabel_irq[irq].nomor_irq = irq;
         tabel_irq[irq].terpakai = BENAR;
         tabel_irq[irq].termask = BENAR; /* Dicadangkan, tidak bisa diubah */
@@ -190,12 +190,12 @@ static void inisialisasi_sela(void)
 /*
  * Periksa apakah suatu nomor IRQ dicadangkan.
  */
-static logika irq_dicadangkan(uint8 nomor_irq)
+static logika apakah_irq_dicadangkan(uint8 nomor_irq)
 {
 #if defined(ARSITEK_X86) || defined(ARSITEK_X64)
     int i;
     for (i = 0; i < IRQ_DICADANGKAN_COUNT; i++) {
-        if (irq_dicadangkan[i] == nomor_irq) {
+        if (daftar_irq_dicadangkan[i] == nomor_irq) {
             return BENAR;
         }
     }
@@ -279,7 +279,7 @@ int penyedia_sela_cari_bebas(void)
     }
 
     for (i = 0; i < IRQ_MAKSIMUM; i++) {
-        if (!tabel_irq[i].terpakai && !irq_dicadangkan((uint8)i)) {
+        if (!tabel_irq[i].terpakai && !apakah_irq_dicadangkan((uint8)i)) {
             return i;
         }
     }
@@ -329,7 +329,7 @@ int penyedia_sela_alokasi(DataPerangkat *perangkat,
                           "Penyedia: Nomor IRQ di luar jangkauan");
             return -1;
         }
-        if (irq_dicadangkan((uint8)nomor_interupsi)) {
+        if (apakah_irq_dicadangkan((uint8)nomor_interupsi)) {
             notulen_catat(NOTULEN_KESALAHAN,
                           "Penyedia: IRQ dicadangkan, tidak dapat dialokasi");
             return -1;
@@ -410,7 +410,7 @@ int penyedia_sela_bebaskan(uint8 nomor_irq)
         return STATUS_TIDAK_ADA;
     }
 
-    if (irq_dicadangkan(nomor_irq)) {
+    if (apakah_irq_dicadangkan(nomor_irq)) {
         notulen_catat(NOTULEN_KESALAHAN,
                       "Penyedia: IRQ dicadangkan, tidak dapat dibebaskan");
         return STATUS_GAGAL;
@@ -603,7 +603,7 @@ int penyedia_sela_unmask(uint8 nomor_irq)
     if (nomor_irq >= IRQ_MAKSIMUM) return STATUS_PARAMETAR_SALAH;
 
     /* Jangan unmask IRQ yang dicadangkan */
-    if (irq_dicadangkan(nomor_irq)) {
+    if (apakah_irq_dicadangkan(nomor_irq)) {
         return STATUS_GAGAL;
     }
 
